@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#FF4757">
+  <title>黑视频 - 发现</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root { --primary: #FF4757; }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #f3f4f6; }
+    .safe-top { padding-top: env(safe-area-inset-top, 0px); }
+    .safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
+    .card-shadow { box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .nav-inactive { color: #9ca3af; }
+    .sort-btn { transition: all 0.15s; }
+    .sort-btn.active { color:#FF4757; font-weight:600; }
+    .scrollbar-hide::-webkit-scrollbar { display:none; }
+    .scrollbar-hide { -ms-overflow-style:none; scrollbar-width:none; }
+    @keyframes fadeInUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+    .fade-in-up { animation: fadeInUp 0.35s ease both; }
+    .category-icon-card { transition: transform 0.15s, box-shadow 0.15s; }
+    .category-icon-card:active { transform: scale(0.94); }
+    .channel-card { transition: all 0.15s; }
+    .topic-card { transition: all 0.15s; }
+    .follow-btn { transition: all 0.2s; }
+    .follow-btn.following { background:#f3f4f6 !important; color:#374151 !important; }
+    .video-sort-bar { position: sticky; top: 56px; z-index: 30; }
+  </style>
+</head>
+<body class="bg-gray-100">
+
+<!-- Header -->
+<header class="fixed top-0 left-0 right-0 z-50 bg-white safe-top" style="box-shadow:0 1px 0 rgba(0,0,0,0.08)">
+  <div class="flex items-center justify-between px-4 h-14">
+    <div class="flex items-center gap-2">
+      <button onclick="history.back()" id="backBtn" class="p-1 hidden">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <span class="font-bold text-base text-gray-900" id="pageTitle">发现</span>
+    </div>
+    <div class="flex items-center gap-3">
+      <button onclick="window.location.href='search.html'">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<!-- Main -->
+<main class="pt-14 pb-20" id="mainView">
+
+  <!-- Category Grid -->
+  <div class="bg-white px-4 pt-4 pb-3 mt-0">
+    <p class="font-bold text-sm text-gray-800 mb-3">📂 内容分区</p>
+    <div class="grid grid-cols-4 gap-3" id="categoryGrid">
+      <!-- injected by JS -->
+    </div>
+  </div>
+
+  <!-- Featured Channels -->
+  <div class="bg-white mt-2 px-4 pt-4 pb-3">
+    <div class="flex items-center justify-between mb-3">
+      <p class="font-bold text-sm text-gray-800">📺 热门频道</p>
+      <button class="text-xs text-gray-400">查看更多</button>
+    </div>
+    <div class="flex gap-3 overflow-x-auto scrollbar-hide pb-1" id="channelList">
+      <!-- injected by JS -->
+    </div>
+  </div>
+
+  <!-- Hot Topics -->
+  <div class="bg-white mt-2 px-4 pt-4 pb-3">
+    <div class="flex items-center justify-between mb-3">
+      <p class="font-bold text-sm text-gray-800">🔥 热门话题</p>
+      <button class="text-xs text-gray-400">查看更多</button>
+    </div>
+    <div class="grid grid-cols-2 gap-3" id="topicGrid">
+      <!-- injected by JS -->
+    </div>
+  </div>
+
+  <!-- Video List Section -->
+  <div class="bg-white mt-2">
+    <!-- Sort bar -->
+    <div class="video-sort-bar bg-white flex items-center gap-4 px-4 py-2.5 border-b border-gray-50">
+      <span class="text-sm text-gray-600 mr-1">全部视频</span>
+      <button class="sort-btn active text-sm" id="sortNewest" onclick="setSort(this,'newest')">最新</button>
+      <button class="sort-btn text-sm text-gray-500" id="sortHottest" onclick="setSort(this,'hottest')">最热</button>
+      <button class="sort-btn text-sm text-gray-500" id="sortDuration" onclick="setSort(this,'duration')">时长</button>
+    </div>
+    <div id="videoList" class="divide-y divide-gray-50"></div>
+    <div class="flex justify-center py-4">
+      <div class="w-4 h-4 rounded-full border-2 border-gray-200 border-t-red-400" style="animation:spin 1s linear infinite"></div>
+      <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+    </div>
+  </div>
+
+</main>
+
+<!-- Category Detail View (hidden by default) -->
+<div id="categoryDetailView" class="hidden pt-14 pb-20">
+  <div class="bg-white px-4 py-3 flex items-center gap-2 border-b border-gray-100">
+    <div class="w-10 h-10 rounded-xl flex items-center justify-center text-xl" id="catDetailIcon" style="background:linear-gradient(135deg,#FF4757,#ff6348)"></div>
+    <div>
+      <p class="font-bold text-gray-900" id="catDetailName"></p>
+      <p class="text-xs text-gray-400" id="catDetailDesc"></p>
+    </div>
+  </div>
+  <!-- Sort for category -->
+  <div class="bg-white mt-2 flex items-center gap-4 px-4 py-2.5 border-b border-gray-50 sticky top-14 z-20">
+    <button class="sort-btn active text-sm text-red-500 font-semibold" onclick="setCatSort(this,'newest')">最新</button>
+    <button class="sort-btn text-sm text-gray-500" onclick="setCatSort(this,'hottest')">最热</button>
+    <button class="sort-btn text-sm text-gray-500" onclick="setCatSort(this,'duration')">时长</button>
+  </div>
+  <div id="catVideoList" class="bg-white mt-2 divide-y divide-gray-50"></div>
+</div>
+
+<!-- Bottom Navigation -->
+<nav class="fixed bottom-0 left-0 right-0 bg-white z-50 safe-bottom" style="box-shadow:0 -1px 0 rgba(0,0,0,0.08)">
+  <div class="flex h-14">
+    <a href="index.html" class="flex-1 flex flex-col items-center justify-center gap-0.5 nav-inactive">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      <span class="text-xs">首页</span>
+    </a>
+    <a href="search.html" class="flex-1 flex flex-col items-center justify-center gap-0.5 nav-inactive">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <span class="text-xs">搜索</span>
+    </a>
+    <a href="category.html" class="flex-1 flex flex-col items-center justify-center gap-0.5" style="color:#FF4757">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FF4757" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+      <span class="text-xs font-medium" style="color:#FF4757">发现</span>
+    </a>
+    <a href="profile.html" class="flex-1 flex flex-col items-center justify-center gap-0.5 nav-inactive">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      <span class="text-xs">我的</span>
+    </a>
+  </div>
+</nav>
+
+<script>
+// ─── Data ─────────────────────────────────────────────────────
+const categories = [
+  { name:'游戏', icon:'🎮', bg:'linear-gradient(135deg,#5352ED,#3742fa)', desc:'电竞·直播·攻略', count:'1.2万个视频' },
+  { name:'音乐', icon:'🎵', bg:'linear-gradient(135deg,#2ed573,#1e9e4d)', desc:'原创·翻唱·BGM', count:'8.6千个视频' },
+  { name:'影视', icon:'🎬', bg:'linear-gradient(135deg,#FF4757,#ff6348)', desc:'电影·剧集·解说', count:'2.1万个视频' },
+  { name:'学习', icon:'📚', bg:'linear-gradient(135deg,#ffa502,#e67e22)', desc:'编程·语言·技能', count:'6.4千个视频' },
+  { name:'搞笑', icon:'😄', bg:'linear-gradient(135deg,#ff6b81,#c44569)', desc:'段子·Vlog·合集', count:'3.3万个视频' },
+  { name:'生活', icon:'🏠', bg:'linear-gradient(135deg,#fdcb6e,#e17055)', desc:'美食·旅行·日常', count:'1.8万个视频' },
+  { name:'体育', icon:'⚽', bg:'linear-gradient(135deg,#00d2d3,#0097a7)', desc:'足球·篮球·健身', count:'9.2千个视频' },
+  { name:'科技', icon:'💻', bg:'linear-gradient(135deg,#a29bfe,#6c5ce7)', desc:'数码·AI·科普', count:'5.1千个视频' },
+];
+
+const channels = [
+  { name:'自然探索频道', desc:'自然地理纪录', subs:'12.4万', bg:'linear-gradient(135deg,#FF4757,#ff6348)', hot:true },
+  { name:'Python小课堂', desc:'编程教学', subs:'8.6万', bg:'linear-gradient(135deg,#5352ED,#3742fa)', hot:false },
+  { name:'游戏BGM博主', desc:'游戏音乐ACGN', subs:'34.2万', bg:'linear-gradient(135deg,#2ed573,#1e9e4d)', hot:true },
+  { name:'美食大厨老王', desc:'家常菜制作', subs:'6.7万', bg:'linear-gradient(135deg,#ffa502,#e67e22)', hot:false },
+  { name:'探险达人', desc:'全球探险', subs:'5.7万', bg:'linear-gradient(135deg,#747d8c,#57606f)', hot:true },
+  { name:'极限运动集锦', desc:'户外运动精选', subs:'21.3万', bg:'linear-gradient(135deg,#00d2d3,#0097a7)', hot:false },
+];
+
+const topics = [
+  { name:'#城市生活记录', count:'2.4万个视频', bg:'linear-gradient(135deg,#FF4757,#ff6348)' },
+  { name:'#Python学习打卡', count:'1.8万个视频', bg:'linear-gradient(135deg,#5352ED,#3742fa)' },
+  { name:'#极限挑战日常', count:'9.6千个视频', bg:'linear-gradient(135deg,#2ed573,#1e9e4d)' },
+  { name:'#美食探店打卡', count:'3.2万个视频', bg:'linear-gradient(135deg,#ffa502,#e67e22)' },
+  { name:'#自然风光摄影', count:'1.1万个视频', bg:'linear-gradient(135deg,#a29bfe,#6c5ce7)' },
+  { name:'#游戏每日精彩', count:'5.4千个视频', bg:'linear-gradient(135deg,#00d2d3,#0097a7)' },
+];
+
+const allVideos = [
+  { title:'【震撼】全球最美的10个自然奇观', author:'自然探索频道', views:'21.4万', time:'2天前', duration:'15:32', cat:'影视', gradient:'linear-gradient(135deg,#FF4757,#ff6348)' },
+  { title:'学会这5个技巧，Python编程效率翻倍', author:'Python小课堂', views:'5.8万', time:'1天前', duration:'28:14', cat:'学习', gradient:'linear-gradient(135deg,#5352ED,#3742fa)' },
+  { title:'2024最火游戏BGM合集精选', author:'游戏BGM博主', views:'93.2万', time:'3小时前', duration:'45:00', cat:'游戏', gradient:'linear-gradient(135deg,#2ed573,#1e9e4d)' },
+  { title:'手把手教你做红烧肉，简单好吃不失败', author:'美食大厨老王', views:'12.6万', time:'5小时前', duration:'18:45', cat:'生活', gradient:'linear-gradient(135deg,#ffa502,#e67e22)' },
+  { title:'探秘世界各地神秘废墟遗址', author:'探险达人', views:'8.3万', time:'1周前', duration:'22:18', cat:'影视', gradient:'linear-gradient(135deg,#747d8c,#57606f)' },
+  { title:'当代年轻人的真实生活状态纪录', author:'生活记录者', views:'44.7万', time:'4天前', duration:'35:22', cat:'生活', gradient:'linear-gradient(135deg,#ff6b81,#c44569)' },
+  { title:'极限运动精彩瞬间集锦4K版', author:'极限运动集锦', views:'67.1万', time:'6小时前', duration:'12:05', cat:'体育', gradient:'linear-gradient(135deg,#00d2d3,#0097a7)' },
+  { title:'古典音乐入门指南 从零开始听懂巴赫', author:'古典音乐爱好者', views:'3.2万', time:'2周前', duration:'41:30', cat:'音乐', gradient:'linear-gradient(135deg,#a29bfe,#6c5ce7)' },
+];
+
+// ─── Init ─────────────────────────────────────────────────────
+function init() {
+  renderCategories();
+  renderChannels();
+  renderTopics();
+  renderVideoList(allVideos);
+}
+
+// ─── Category Grid ─────────────────────────────────────────────
+function renderCategories() {
+  const g = document.getElementById('categoryGrid');
+  categories.forEach(c => {
+    const btn = document.createElement('button');
+    btn.className = 'category-icon-card flex flex-col items-center gap-1.5';
+    btn.innerHTML = `
+      <div class="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl" style="background:${c.bg}">${c.icon}</div>
+      <span class="text-xs text-gray-700 font-medium">${c.name}</span>`;
+    btn.onclick = () => showCategory(c);
+    g.appendChild(btn);
+  });
+}
+
+// ─── Channels ─────────────────────────────────────────────────
+function renderChannels() {
+  const list = document.getElementById('channelList');
+  channels.forEach(ch => {
+    const card = document.createElement('div');
+    card.className = 'channel-card flex-shrink-0 w-28 flex flex-col items-center text-center p-3 bg-gray-50 rounded-xl';
+    card.innerHTML = `
+      <div class="relative w-14 h-14 rounded-full mb-2" style="background:${ch.bg}">
+        ${ch.hot ? '<span class="absolute -top-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center text-xs" style="background:#FF4757;font-size:8px;color:white">热</span>' : ''}
+      </div>
+      <p class="text-xs font-medium text-gray-800 leading-tight mb-1 line-clamp-1">${ch.name}</p>
+      <p class="text-xs text-gray-400 mb-2">${ch.subs}订阅</p>
+      <button class="follow-btn w-full py-1 rounded-full text-xs font-medium text-white" style="background:#FF4757" onclick="toggleFollow(this)">订阅</button>`;
+    list.appendChild(card);
+  });
+}
+
+// ─── Topics ───────────────────────────────────────────────────
+function renderTopics() {
+  const g = document.getElementById('topicGrid');
+  topics.forEach(t => {
+    const card = document.createElement('div');
+    card.className = 'topic-card relative rounded-xl overflow-hidden cursor-pointer';
+    card.style.height = '80px';
+    card.innerHTML = `
+      <div class="absolute inset-0" style="background:${t.bg};opacity:0.85"></div>
+      <div class="absolute inset-0 flex flex-col justify-end p-3">
+        <p class="text-white font-bold text-xs leading-tight">${t.name}</p>
+        <p class="text-white text-xs opacity-70 mt-0.5">${t.count}</p>
+      </div>`;
+    card.onclick = () => showToast(`查看话题：${t.name}`);
+    g.appendChild(card);
+  });
+}
+
+// ─── Video List ────────────────────────────────────────────────
+function renderVideoList(videos) {
+  const list = document.getElementById('videoList');
+  list.innerHTML = '';
+  videos.forEach((v, i) => {
+    const d = document.createElement('div');
+    d.className = 'flex gap-3 p-3 cursor-pointer bg-white';
+    d.style.animationDelay = `${i * 0.04}s`;
+    d.innerHTML = `
+      <div class="relative flex-shrink-0 w-32 h-20 rounded-xl overflow-hidden" style="background:${v.gradient}">
+        <div class="absolute inset-0 flex items-center justify-center">
+          <div class="w-8 h-8 rounded-full bg-black bg-opacity-30 flex items-center justify-center">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><polygon points="5,3 19,12 5,21"/></svg>
+          </div>
+        </div>
+        <span class="absolute bottom-1 right-1 bg-black bg-opacity-70 text-white text-xs px-1.5 py-0.5 rounded">${v.duration}</span>
+      </div>
+      <div class="flex-1 min-w-0">
+        <p class="text-sm font-medium text-gray-800 leading-snug line-clamp-2 mb-1.5">${v.title}</p>
+        <p class="text-xs text-gray-500 mb-1">${v.author}</p>
+        <div class="flex items-center gap-2 text-xs text-gray-400">
+          <span class="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">${v.cat}</span>
+          <span>${v.views}次</span>
+          <span>·</span>
+          <span>${v.time}</span>
+        </div>
+      </div>`;
+    d.onclick = () => window.location.href = 'video.html';
+    list.appendChild(d);
+  });
+}
+
+// ─── Category Detail ───────────────────────────────────────────
+function showCategory(cat) {
+  document.getElementById('mainView').classList.add('hidden');
+  document.getElementById('categoryDetailView').classList.remove('hidden');
+  document.getElementById('backBtn').classList.remove('hidden');
+  document.getElementById('pageTitle').textContent = cat.name;
+  document.getElementById('catDetailIcon').textContent = cat.icon;
+  document.getElementById('catDetailIcon').style.background = cat.bg;
+  document.getElementById('catDetailName').textContent = cat.name + '频道';
+  document.getElementById('catDetailDesc').textContent = cat.desc + ' · ' + cat.count;
+
+  const filtered = allVideos.filter(v => v.cat === cat.name);
+  const display = filtered.length > 0 ? filtered : allVideos;
+  const catList = document.getElementById('catVideoList');
+  catList.innerHTML = '';
+  display.forEach((v, i) => {
+    const d = document.createElement('div');
+    d.className = 'flex gap-3 p-3 cursor-pointer';
+    d.innerHTML = `
+      <div class="relative flex-shrink-0 w-32 h-20 rounded-xl overflow-hidden" style="background:${v.gradient}">
+        <div class="absolute inset-0 flex items-center justify-center">
+          <div class="w-8 h-8 rounded-full bg-black bg-opacity-30 flex items-center justify-center">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><polygon points="5,3 19,12 5,21"/></svg>
+          </div>
+        </div>
+        <span class="absolute bottom-1 right-1 bg-black bg-opacity-70 text-white text-xs px-1.5 py-0.5 rounded">${v.duration}</span>
+      </div>
+      <div class="flex-1 min-w-0">
+        <p class="text-sm font-medium text-gray-800 leading-snug line-clamp-2 mb-1.5">${v.title}</p>
+        <p class="text-xs text-gray-500 mb-1">${v.author}</p>
+        <div class="flex items-center gap-2 text-xs text-gray-400">
+          <span>${v.views}次观看</span><span>·</span><span>${v.time}</span>
+        </div>
+      </div>`;
+    d.onclick = () => window.location.href = 'video.html';
+    catList.appendChild(d);
+  });
+
+  // Override back button
+  document.getElementById('backBtn').onclick = () => {
+    document.getElementById('mainView').classList.remove('hidden');
+    document.getElementById('categoryDetailView').classList.add('hidden');
+    document.getElementById('backBtn').classList.add('hidden');
+    document.getElementById('pageTitle').textContent = '发现';
+  };
+}
+
+// ─── Sort ─────────────────────────────────────────────────────
+function setSort(el, type) {
+  document.querySelectorAll('.sort-btn').forEach(b => { b.classList.remove('active'); b.style.color='#6b7280'; b.style.fontWeight=''; });
+  el.classList.add('active'); el.style.color='#FF4757'; el.style.fontWeight='600';
+  let sorted = [...allVideos];
+  if (type === 'newest') sorted.sort(() => Math.random() - 0.5);
+  else if (type === 'hottest') sorted.sort((a,b) => parseFloat(b.views) - parseFloat(a.views));
+  else if (type === 'duration') sorted.sort((a,b) => {
+    const toSecs = d => { const [m,s] = d.split(':').map(Number); return m*60+s; };
+    return toSecs(b.duration) - toSecs(a.duration);
+  });
+  renderVideoList(sorted);
+}
+
+function setCatSort(el, type) {
+  document.querySelectorAll('#categoryDetailView .sort-btn').forEach(b => { b.classList.remove('active'); b.style.color='#6b7280'; b.style.fontWeight=''; });
+  el.classList.add('active'); el.style.color='#FF4757'; el.style.fontWeight='600';
+}
+
+// ─── Follow toggle ─────────────────────────────────────────────
+function toggleFollow(btn) {
+  const isFollowing = btn.textContent === '已订阅';
+  btn.textContent = isFollowing ? '订阅' : '已订阅';
+  btn.classList.toggle('following', !isFollowing);
+  if (!isFollowing) {
+    btn.style.background = '#f3f4f6';
+    btn.style.color = '#374151';
+  } else {
+    btn.style.background = '#FF4757';
+    btn.style.color = 'white';
+  }
+}
+
+function showToast(msg) {
+  const t = document.createElement('div');
+  t.className = 'fixed z-50 left-1/2 bg-black bg-opacity-70 text-white text-xs px-4 py-2 rounded-full pointer-events-none';
+  t.style.bottom = '90px'; t.style.transform = 'translateX(-50%)';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => { t.style.opacity='0'; t.style.transition='opacity 0.3s'; }, 1500);
+  setTimeout(() => t.remove(), 1800);
+}
+
+init();
+</script>
+</body>
+</html>

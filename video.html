@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#000000">
+  <title>黑视频 - 播放</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root { --primary: #FF4757; }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #f3f4f6; }
+    .safe-top { padding-top: env(safe-area-inset-top, 0px); }
+    .safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
+    .card-shadow { box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    @keyframes likeAnim { 0%{transform:scale(1)} 40%{transform:scale(1.4)} 100%{transform:scale(1)} }
+    .like-pop { animation: likeAnim 0.3s ease; }
+    @keyframes slideUp { from{transform:translateY(100%)} to{transform:translateY(0)} }
+    .slide-up { animation: slideUp 0.3s cubic-bezier(0.25,0.46,0.45,0.94); }
+    .controls-fade { transition: opacity 0.3s ease; }
+    .progress-thumb { width:12px;height:12px;border-radius:50%;background:white;position:absolute;top:50%;transform:translate(-50%,-50%);transition:left 0.1s; }
+    .progress-track { height:3px;background:rgba(255,255,255,0.3);border-radius:2px;position:relative;flex:1;cursor:pointer; }
+    .progress-fill { height:100%;background:#FF4757;border-radius:2px;position:relative;transition:width 0.1s; }
+    .scrollbar-hide::-webkit-scrollbar { display: none; }
+    .scrollbar-hide { -ms-overflow-style:none; scrollbar-width:none; }
+    .video-tab { transition: all 0.2s; }
+    .video-tab.active { color:#FF4757; border-bottom:2px solid #FF4757; }
+    .comment-item { transition: background 0.1s; }
+    .comment-item:active { background: #f9fafb; }
+    .action-btn { transition: all 0.15s; }
+    .action-btn:active { transform: scale(0.92); }
+    .selector-panel { transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.25,0.46,0.45,0.94); }
+    .selector-panel.open { transform: translateY(0); }
+    .quality-option, .speed-option { transition: all 0.15s; }
+    .quality-option.active, .speed-option.active { color:#FF4757; font-weight:600; }
+  </style>
+</head>
+<body class="bg-black" style="overscroll-behavior:none">
+
+<!-- Video Player Area -->
+<div class="relative bg-black" id="playerArea" style="padding-top:56.25%">
+  <!-- Video placeholder -->
+  <div class="absolute inset-0" style="background:linear-gradient(135deg,#1a1a2e,#16213e,#0f3460)">
+    <!-- Simulated video content -->
+    <div class="absolute inset-0 flex items-center justify-center">
+      <div class="text-center">
+        <div class="w-16 h-16 rounded-full border-2 border-white border-opacity-20 flex items-center justify-center mx-auto mb-2">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polygon points="10,8 16,12 10,16" fill="rgba(255,255,255,0.4)" stroke="none"/></svg>
+        </div>
+        <p class="text-white text-opacity-30 text-xs" style="color:rgba(255,255,255,0.3)">视频加载中...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Controls Overlay -->
+  <div class="absolute inset-0 controls-fade" id="controlsOverlay" style="background:linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, transparent 30%, transparent 60%, rgba(0,0,0,0.6) 100%)">
+    <!-- Top bar -->
+    <div class="absolute top-0 left-0 right-0 flex items-center justify-between px-3 py-2 safe-top">
+      <button onclick="window.history.back()" class="w-8 h-8 flex items-center justify-center rounded-full bg-black bg-opacity-30">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <div class="flex items-center gap-2">
+        <button onclick="openQuality()" class="text-white text-xs bg-black bg-opacity-30 px-2 py-1 rounded" id="qualityLabel">自动</button>
+        <button class="w-8 h-8 flex items-center justify-center rounded-full bg-black bg-opacity-30">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Center play button -->
+    <div class="absolute inset-0 flex items-center justify-center" onclick="togglePlay()">
+      <div class="w-14 h-14 rounded-full bg-black bg-opacity-40 flex items-center justify-center" id="centerPlayBtn">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="white" id="centerPlayIcon"><polygon points="5,3 19,12 5,21"/></svg>
+      </div>
+    </div>
+
+    <!-- Bottom controls -->
+    <div class="absolute bottom-0 left-0 right-0 px-3 pb-3">
+      <!-- Progress bar -->
+      <div class="flex items-center gap-2 mb-2">
+        <span class="text-white text-xs w-10 text-center" id="currentTime">0:00</span>
+        <div class="progress-track" id="progressTrack" onclick="seekVideo(event)">
+          <div class="progress-fill" id="progressFill" style="width:0%">
+            <div class="progress-thumb" id="progressThumb"></div>
+          </div>
+        </div>
+        <span class="text-white text-xs w-10 text-center">15:32</span>
+      </div>
+      <!-- Controls row -->
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <button onclick="togglePlay()" class="text-white">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="white" id="playIcon"><polygon points="5,3 19,12 5,21"/></svg>
+          </button>
+          <button onclick="seek(-10)" class="text-white">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.02"/><text x="7" y="16" fill="white" stroke="none" font-size="6">10</text></svg>
+          </button>
+          <button onclick="seek(10)" class="text-white">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.49-4.02"/></svg>
+          </button>
+          <button onclick="openSpeed()" class="text-white text-xs bg-black bg-opacity-30 px-2 py-1 rounded" id="speedLabel">1x</button>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="toggleMute()" class="text-white" id="muteBtn">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+          </button>
+          <button onclick="toggleFullscreen()" class="text-white">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Scrollable Content -->
+<div class="bg-gray-100 overflow-y-auto pb-4" style="background:#f3f4f6">
+
+  <!-- Video Info -->
+  <div class="bg-white px-4 pt-3 pb-0">
+    <!-- Title -->
+    <div class="mb-2">
+      <h1 class="text-base font-bold text-gray-900 leading-snug" id="videoTitle">【震撼】全球最美的10个自然奇观，第3个让你窒息</h1>
+      <div class="flex items-center gap-1 mt-1" id="titleExpand">
+        <span class="text-xs text-gray-500">展开简介</span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+    </div>
+
+    <!-- Stats row -->
+    <div class="flex items-center gap-4 py-2 text-xs text-gray-400 border-b border-gray-50">
+      <span id="viewCount">21.4万次观看</span>
+      <span>·</span>
+      <span>2024-11-08</span>
+      <span>·</span>
+      <span class="text-blue-400">#自然 #风景 #地理</span>
+    </div>
+
+    <!-- Action buttons -->
+    <div class="flex items-center justify-around py-3 border-b border-gray-50">
+      <button class="action-btn flex flex-col items-center gap-1" onclick="toggleLike(this)">
+        <div class="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center" id="likeIconWrap">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="likeIcon"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+        </div>
+        <span class="text-xs text-gray-600" id="likeCount">3.2万</span>
+      </button>
+      <button class="action-btn flex flex-col items-center gap-1" onclick="toggleCollect(this)">
+        <div class="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center" id="collectIconWrap">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="collectIcon"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        </div>
+        <span class="text-xs text-gray-600" id="collectCount">1.8万</span>
+      </button>
+      <button class="action-btn flex flex-col items-center gap-1" onclick="scrollToComments()">
+        <div class="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        </div>
+        <span class="text-xs text-gray-600">2041</span>
+      </button>
+      <button class="action-btn flex flex-col items-center gap-1" onclick="openShare()">
+        <div class="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+        </div>
+        <span class="text-xs text-gray-600">分享</span>
+      </button>
+      <button class="action-btn flex flex-col items-center gap-1">
+        <div class="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        </div>
+        <span class="text-xs text-gray-600">下载</span>
+      </button>
+    </div>
+
+    <!-- Author info -->
+    <div class="flex items-center gap-3 py-3">
+      <div class="w-11 h-11 rounded-full flex-shrink-0" style="background:linear-gradient(135deg,#FF4757,#ff6348)"></div>
+      <div class="flex-1">
+        <p class="font-medium text-gray-900 text-sm">自然探索频道</p>
+        <p class="text-xs text-gray-400 mt-0.5">12.4万 订阅者</p>
+      </div>
+      <button class="px-4 py-2 rounded-full text-sm font-medium text-white" style="background:#FF4757" id="followBtn" onclick="toggleFollow()">关注</button>
+    </div>
+
+    <!-- Tags -->
+    <div class="flex flex-wrap gap-2 pb-3 border-t border-gray-50 pt-2">
+      <span class="text-xs text-blue-500 bg-blue-50 px-2.5 py-1 rounded-full">#自然奇观</span>
+      <span class="text-xs text-blue-500 bg-blue-50 px-2.5 py-1 rounded-full">#世界地理</span>
+      <span class="text-xs text-blue-500 bg-blue-50 px-2.5 py-1 rounded-full">#风景</span>
+      <span class="text-xs text-blue-500 bg-blue-50 px-2.5 py-1 rounded-full">#探索</span>
+    </div>
+  </div>
+
+  <!-- Tab section -->
+  <div class="bg-white mt-2" id="tabSection">
+    <div class="flex border-b border-gray-100">
+      <button class="video-tab active flex-1 py-3 text-sm font-medium text-center" onclick="switchVideoTab(this,'intro')">简介</button>
+      <button class="video-tab flex-1 py-3 text-sm font-medium text-center text-gray-500" onclick="switchVideoTab(this,'comments')">评论 <span class="text-gray-400 text-xs">2041</span></button>
+    </div>
+
+    <!-- Intro tab -->
+    <div id="introTab" class="p-4">
+      <p class="text-sm text-gray-700 leading-relaxed mb-3" id="descText">本期视频带大家探索全球最令人叹为观止的10大自然奇观！从波澜壮阔的大峡谷到神秘的北极光，从壮丽的维多利亚瀑布到神奇的死海，每一处都是大自然鬼斧神工的杰作...</p>
+      <button class="text-xs text-blue-500 mb-3" onclick="toggleDesc()">展开更多</button>
+      <div class="flex items-center gap-6 text-xs text-gray-400">
+        <div><span class="text-gray-600">分类</span> <span class="ml-1 text-blue-500">自然 / 地理</span></div>
+        <div><span class="text-gray-600">时长</span> <span class="ml-1">15:32</span></div>
+        <div><span class="text-gray-600">发布</span> <span class="ml-1">2024-11-08</span></div>
+      </div>
+    </div>
+
+    <!-- Comments tab -->
+    <div id="commentsTab" class="hidden">
+      <div class="flex items-center justify-between px-4 py-2.5 border-b border-gray-50">
+        <span class="text-sm font-medium text-gray-800">2041条评论</span>
+        <div class="flex items-center gap-2">
+          <button class="text-xs px-2.5 py-1 rounded-full text-white text-xs font-medium" style="background:#FF4757" id="sortHot" onclick="setSort('hot')">最热</button>
+          <button class="text-xs px-2.5 py-1 rounded-full bg-gray-100 text-gray-600 text-xs" id="sortNew" onclick="setSort('new')">最新</button>
+        </div>
+      </div>
+      <div id="commentList" class="divide-y divide-gray-50"></div>
+    </div>
+  </div>
+
+  <!-- Related Videos -->
+  <div class="bg-white mt-2 px-4 pt-3 pb-2">
+    <p class="font-bold text-sm text-gray-800 mb-3">相关推荐</p>
+    <!-- Horizontal scroll -->
+    <div class="flex gap-3 overflow-x-auto scrollbar-hide pb-2 mb-3">
+      <!-- injected by JS -->
+    </div>
+    <!-- Vertical list -->
+    <div id="relatedList" class="space-y-3"></div>
+  </div>
+
+</div>
+
+<!-- Comment Input Bar (fixed) -->
+<div class="fixed bottom-0 left-0 right-0 bg-white safe-bottom z-40" style="box-shadow:0 -1px 0 rgba(0,0,0,0.08)">
+  <div class="flex items-center gap-2 px-3 py-2">
+    <div class="w-7 h-7 rounded-full" style="background:linear-gradient(135deg,#FF4757,#ff6348)"></div>
+    <div class="flex-1 bg-gray-100 rounded-full px-4 py-2 text-sm text-gray-400 cursor-pointer" onclick="focusComment()">说点什么...</div>
+    <button class="w-8 h-8 flex items-center justify-center">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+    </button>
+    <button class="w-8 h-8 flex items-center justify-center">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+    </button>
+  </div>
+</div>
+
+<!-- Share Sheet -->
+<div class="fixed inset-0 z-50 pointer-events-none" id="shareOverlay">
+  <div class="absolute inset-0 bg-black bg-opacity-40" style="display:none" id="shareBg" onclick="closeShare()"></div>
+  <div class="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl safe-bottom selector-panel" id="sharePanel">
+    <div class="flex justify-center pt-2 pb-1"><div class="w-10 h-1 bg-gray-200 rounded-full"></div></div>
+    <p class="text-center text-sm font-medium text-gray-800 py-3 border-b border-gray-100">分享给</p>
+    <div class="flex justify-around px-6 py-4">
+      <button class="flex flex-col items-center gap-2" onclick="closeShare()">
+        <div class="w-12 h-12 rounded-full flex items-center justify-center text-2xl" style="background:#07C160">💬</div>
+        <span class="text-xs text-gray-600">微信</span>
+      </button>
+      <button class="flex flex-col items-center gap-2" onclick="closeShare()">
+        <div class="w-12 h-12 rounded-full flex items-center justify-center text-2xl" style="background:#12B7F5">🐧</div>
+        <span class="text-xs text-gray-600">QQ</span>
+      </button>
+      <button class="flex flex-col items-center gap-2" onclick="closeShare()">
+        <div class="w-12 h-12 rounded-full flex items-center justify-center text-2xl" style="background:#E02020">🎵</div>
+        <span class="text-xs text-gray-600">微博</span>
+      </button>
+      <button class="flex flex-col items-center gap-2" onclick="copyLink()">
+        <div class="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        </div>
+        <span class="text-xs text-gray-600">复制链接</span>
+      </button>
+    </div>
+    <button class="w-full py-3 text-sm text-gray-500 border-t border-gray-100" onclick="closeShare()">取消</button>
+  </div>
+</div>
+
+<!-- Quality Selector Panel -->
+<div class="fixed inset-0 z-50 pointer-events-none" id="qualityOverlay">
+  <div class="absolute inset-0 bg-black bg-opacity-40" style="display:none" id="qualityBg" onclick="closeQuality()"></div>
+  <div class="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl safe-bottom selector-panel" id="qualityPanel">
+    <div class="flex justify-center pt-2 pb-1"><div class="w-10 h-1 bg-gray-200 rounded-full"></div></div>
+    <p class="text-center text-sm font-medium text-gray-800 py-3 border-b border-gray-100">画质选择</p>
+    <div class="px-4 py-2">
+      <div class="quality-option active flex items-center justify-between py-3.5 border-b border-gray-50 cursor-pointer" onclick="selectQuality(this,'自动')">
+        <span class="text-sm text-gray-800">自动</span>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="#FF4757" class="check-icon"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <div class="quality-option flex items-center justify-between py-3.5 border-b border-gray-50 cursor-pointer" onclick="selectQuality(this,'1080P')">
+        <div><span class="text-sm text-gray-800">1080P</span> <span class="text-xs bg-yellow-400 text-white px-1.5 py-0.5 rounded ml-1">高清</span></div>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="#FF4757" class="check-icon hidden"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <div class="quality-option flex items-center justify-between py-3.5 border-b border-gray-50 cursor-pointer" onclick="selectQuality(this,'720P')">
+        <span class="text-sm text-gray-800">720P</span>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="#FF4757" class="check-icon hidden"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <div class="quality-option flex items-center justify-between py-3.5 cursor-pointer" onclick="selectQuality(this,'360P')">
+        <span class="text-sm text-gray-800">360P</span>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="#FF4757" class="check-icon hidden"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Speed Selector Panel -->
+<div class="fixed inset-0 z-50 pointer-events-none" id="speedOverlay">
+  <div class="absolute inset-0 bg-black bg-opacity-40" style="display:none" id="speedBg" onclick="closeSpeed()"></div>
+  <div class="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl safe-bottom selector-panel" id="speedPanel">
+    <div class="flex justify-center pt-2 pb-1"><div class="w-10 h-1 bg-gray-200 rounded-full"></div></div>
+    <p class="text-center text-sm font-medium text-gray-800 py-3 border-b border-gray-100">播放速度</p>
+    <div class="px-4 py-2">
+      ${['0.5x','0.75x','1x','1.25x','1.5x','2x'].map(s => `
+      <div class="speed-option ${s==='1x'?'active':''} flex items-center justify-between py-3.5 border-b border-gray-50 last:border-0 cursor-pointer" onclick="selectSpeed(this,'${s}')">
+        <span class="text-sm text-gray-800">${s}</span>
+        ${s==='1x'?'<svg width="18" height="18" viewBox="0 0 24 24" fill="#FF4757" class="check-icon"><polyline points="20 6 9 17 4 12"/></svg>':'<svg width="18" height="18" viewBox="0 0 24 24" fill="#FF4757" class="check-icon hidden"><polyline points="20 6 9 17 4 12"/></svg>'}
+      </div>`).join('')}
+    </div>
+  </div>
+</div>
+
+<!-- Comment input overlay -->
+<div id="commentInputOverlay" class="fixed inset-0 z-50 hidden">
+  <div class="absolute inset-0 bg-black bg-opacity-40" onclick="closeCommentInput()"></div>
+  <div class="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl p-4 safe-bottom slide-up">
+    <div class="flex items-center gap-2 mb-3">
+      <div class="w-8 h-8 rounded-full" style="background:linear-gradient(135deg,#FF4757,#ff6348)"></div>
+      <span class="text-sm text-gray-600">以 游客用户 的身份发言</span>
+    </div>
+    <textarea id="commentInput" class="w-full bg-gray-100 rounded-xl p-3 text-sm text-gray-800 resize-none" rows="3" placeholder="发表你的想法..."></textarea>
+    <div class="flex items-center justify-between mt-3">
+      <div class="flex gap-3 text-gray-400">
+        <button class="text-xl">😊</button>
+        <button class="text-xl">📷</button>
+      </div>
+      <button onclick="submitComment()" class="px-6 py-2 rounded-full text-white text-sm font-medium" style="background:#FF4757">发布</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── Player State ─────────────────────────────────────────────
+let isPlaying = false, progress = 0, totalSecs = 932, controlsVisible = true;
+let controlsTimer = null, muteState = false;
+
+function togglePlay() {
+  isPlaying = !isPlaying;
+  const icon = document.getElementById('playIcon');
+  const cIcon = document.getElementById('centerPlayIcon');
+  if (isPlaying) {
+    icon.innerHTML = '<rect x="6" y="4" width="4" height="16" fill="white"/><rect x="14" y="4" width="4" height="16" fill="white"/>';
+    cIcon.innerHTML = '<rect x="6" y="4" width="4" height="16" fill="white"/><rect x="14" y="4" width="4" height="16" fill="white"/>';
+    document.getElementById('centerPlayBtn').style.opacity = '0';
+    startProgress();
+  } else {
+    icon.innerHTML = '<polygon points="5,3 19,12 5,21" fill="white"/>';
+    cIcon.innerHTML = '<polygon points="5,3 19,12 5,21" fill="white"/>';
+    document.getElementById('centerPlayBtn').style.opacity = '1';
+    stopProgress();
+  }
+  resetControlsTimer();
+}
+
+let progressInterval;
+function startProgress() {
+  progressInterval = setInterval(() => {
+    progress = Math.min(progress + 1/totalSecs * 100, 100);
+    updateProgressUI();
+    if (progress >= 100) { clearInterval(progressInterval); isPlaying = false; }
+  }, 1000);
+}
+function stopProgress() { clearInterval(progressInterval); }
+
+function updateProgressUI() {
+  document.getElementById('progressFill').style.width = progress + '%';
+  const elapsed = Math.floor(progress / 100 * totalSecs);
+  document.getElementById('currentTime').textContent = formatTime(elapsed);
+}
+
+function formatTime(s) {
+  return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+}
+
+function seekVideo(e) {
+  const track = document.getElementById('progressTrack');
+  const rect = track.getBoundingClientRect();
+  progress = Math.max(0, Math.min(100, (e.clientX - rect.left) / rect.width * 100));
+  updateProgressUI();
+  resetControlsTimer();
+}
+
+function seek(secs) {
+  progress = Math.max(0, Math.min(100, progress + secs/totalSecs*100));
+  updateProgressUI();
+  showToast((secs > 0 ? '+' : '') + secs + '秒');
+  resetControlsTimer();
+}
+
+// Controls auto-hide
+document.getElementById('playerArea').addEventListener('click', () => {
+  controlsVisible = !controlsVisible;
+  document.getElementById('controlsOverlay').style.opacity = controlsVisible ? '1' : '0';
+  if (controlsVisible) resetControlsTimer();
+});
+function resetControlsTimer() {
+  clearTimeout(controlsTimer);
+  if (isPlaying) {
+    controlsTimer = setTimeout(() => {
+      controlsVisible = false;
+      document.getElementById('controlsOverlay').style.opacity = '0';
+    }, 3000);
+  }
+}
+
+function toggleMute() {
+  muteState = !muteState;
+  const btn = document.getElementById('muteBtn');
+  btn.innerHTML = muteState
+    ? '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15" stroke="white"/><line x1="17" y1="9" x2="23" y2="15" stroke="white"/></svg>'
+    : '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>';
+}
+
+function toggleFullscreen() {
+  const el = document.getElementById('playerArea');
+  if (!document.fullscreenElement) {
+    el.requestFullscreen && el.requestFullscreen();
+  } else {
+    document.exitFullscreen && document.exitFullscreen();
+  }
+}
+
+// ─── Likes / Collect / Follow ─────────────────────────────────
+let likeCount = 32000, liked = false, collected = false;
+function toggleLike(btn) {
+  liked = !liked;
+  likeCount += liked ? 1 : -1;
+  const wrap = document.getElementById('likeIconWrap');
+  const icon = document.getElementById('likeIcon');
+  const countEl = document.getElementById('likeCount');
+  wrap.style.background = liked ? '#fff0f1' : '';
+  icon.style.fill = liked ? '#FF4757' : 'none';
+  icon.style.stroke = liked ? '#FF4757' : '#374151';
+  countEl.textContent = likeCount >= 10000 ? (likeCount/10000).toFixed(1) + '万' : likeCount;
+  wrap.classList.add('like-pop');
+  setTimeout(() => wrap.classList.remove('like-pop'), 300);
+}
+
+let collectCount = 18000;
+function toggleCollect(btn) {
+  collected = !collected;
+  collectCount += collected ? 1 : -1;
+  const wrap = document.getElementById('collectIconWrap');
+  const icon = document.getElementById('collectIcon');
+  const countEl = document.getElementById('collectCount');
+  wrap.style.background = collected ? '#fffbf0' : '';
+  icon.style.fill = collected ? '#ffa502' : 'none';
+  icon.style.stroke = collected ? '#ffa502' : '#374151';
+  countEl.textContent = collectCount >= 10000 ? (collectCount/10000).toFixed(1) + '万' : collectCount;
+  wrap.classList.add('like-pop');
+  setTimeout(() => wrap.classList.remove('like-pop'), 300);
+}
+
+let following = false;
+function toggleFollow() {
+  following = !following;
+  const btn = document.getElementById('followBtn');
+  btn.textContent = following ? '已关注' : '关注';
+  btn.style.background = following ? '#f3f4f6' : '#FF4757';
+  btn.style.color = following ? '#374151' : 'white';
+}
+
+// ─── Tabs ─────────────────────────────────────────────────────
+function switchVideoTab(el, tab) {
+  document.querySelectorAll('.video-tab').forEach(t => { t.classList.remove('active'); t.classList.add('text-gray-500'); });
+  el.classList.add('active'); el.classList.remove('text-gray-500');
+  document.getElementById('introTab').classList.toggle('hidden', tab !== 'intro');
+  document.getElementById('commentsTab').classList.toggle('hidden', tab !== 'comments');
+}
+
+function toggleDesc() {
+  const t = document.getElementById('descText');
+  const btn = event.target;
+  if (t.style.webkitLineClamp === 'unset' || !t.style.webkitLineClamp) {
+    t.style.webkitLineClamp = '3'; t.style.overflow = 'hidden'; t.style.display = '-webkit-box'; t.style.webkitBoxOrient = 'vertical';
+    btn.textContent = '展开更多';
+  } else {
+    t.style.webkitLineClamp = 'unset'; t.style.overflow = '';
+    btn.textContent = '收起';
+  }
+}
+
+// ─── Comments ─────────────────────────────────────────────────
+const comments = [
+  { user:'旅行达人小叶', text:'太震撼了！第3个果然让我窒息，维多利亚瀑布真的太壮观了！', likes:1204, time:'2天前', replies:12, avatarBg:'#FF4757' },
+  { user:'探险爱好者', text:'看完直接加入了旅行清单，这辈子一定要去一次！', likes:856, time:'1天前', replies:5, avatarBg:'#5352ED' },
+  { user:'地理老师张老师', text:'可以作为地理课的素材，画面质量非常高，讲解也很专业。', likes:634, time:'3天前', replies:8, avatarBg:'#2ed573' },
+  { user:'摄影师阿明', text:'请问是用什么设备拍摄的？画质真的太好了！', likes:423, time:'5小时前', replies:3, avatarBg:'#ffa502' },
+  { user:'云端漫步者', text:'看了三遍，每次都有新发现，博主用心了！', likes:389, time:'6小时前', replies:1, avatarBg:'#a29bfe' },
+];
+
+function renderComments() {
+  const list = document.getElementById('commentList');
+  list.innerHTML = comments.map(c => `
+    <div class="comment-item flex gap-3 px-4 py-3">
+      <div class="w-9 h-9 rounded-full flex-shrink-0" style="background:${c.avatarBg}"></div>
+      <div class="flex-1">
+        <div class="flex items-center gap-2 mb-1">
+          <span class="text-xs font-medium text-gray-700">${c.user}</span>
+          <span class="text-xs text-gray-400">${c.time}</span>
+        </div>
+        <p class="text-sm text-gray-800 leading-relaxed">${c.text}</p>
+        <div class="flex items-center gap-4 mt-2">
+          <button class="flex items-center gap-1 text-xs text-gray-400" onclick="likeComment(this)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+            <span>${c.likes}</span>
+          </button>
+          <button class="text-xs text-gray-400">回复 ${c.replies}</button>
+          <button class="text-xs text-gray-400">举报</button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+renderComments();
+
+function likeComment(btn) {
+  const span = btn.querySelector('span');
+  const svg = btn.querySelector('svg');
+  const cur = parseInt(span.textContent);
+  span.textContent = cur + 1;
+  svg.style.fill = '#FF4757';
+  svg.style.stroke = '#FF4757';
+}
+
+function setSort(type) {
+  document.getElementById('sortHot').className = `text-xs px-2.5 py-1 rounded-full font-medium ${type==='hot'?'text-white':'bg-gray-100 text-gray-600'}`;
+  document.getElementById('sortNew').className = `text-xs px-2.5 py-1 rounded-full font-medium ${type==='new'?'text-white':'bg-gray-100 text-gray-600'}`;
+  if (type === 'hot') { document.getElementById('sortHot').style.background='#FF4757'; document.getElementById('sortNew').style.background=''; }
+  else { document.getElementById('sortNew').style.background='#FF4757'; document.getElementById('sortHot').style.background=''; }
+  renderComments();
+}
+
+function scrollToComments() {
+  switchVideoTab(document.querySelectorAll('.video-tab')[1], 'comments');
+  document.getElementById('tabSection').scrollIntoView({ behavior:'smooth' });
+}
+
+// ─── Related Videos ───────────────────────────────────────────
+const related = [
+  { title:'探秘世界各地神秘废墟遗址', author:'探险达人', duration:'22:18', gradient:'linear-gradient(135deg,#747d8c,#57606f)' },
+  { title:'当代年轻人的真实生活状态纪录', author:'生活记录者', duration:'35:22', gradient:'linear-gradient(135deg,#ff6b81,#c44569)' },
+  { title:'极限运动精彩瞬间集锦4K版', author:'极限运动集锦', duration:'12:05', gradient:'linear-gradient(135deg,#00d2d3,#0097a7)' },
+  { title:'古典音乐入门指南 从零开始听懂巴赫', author:'古典音乐爱好者', duration:'41:30', gradient:'linear-gradient(135deg,#a29bfe,#6c5ce7)' },
+];
+
+const hScroll = document.querySelector('.flex.gap-3.overflow-x-auto');
+related.forEach(r => {
+  const d = document.createElement('div');
+  d.className = 'flex-shrink-0 w-32 cursor-pointer';
+  d.innerHTML = `
+    <div class="w-32 h-20 rounded-lg mb-1.5 relative flex items-center justify-center" style="background:${r.gradient}">
+      <div class="w-8 h-8 rounded-full bg-black bg-opacity-30 flex items-center justify-center"><svg width="12" height="12" viewBox="0 0 24 24" fill="white"><polygon points="5,3 19,12 5,21"/></svg></div>
+      <span class="absolute bottom-1 right-1 bg-black bg-opacity-60 text-white text-xs px-1 rounded">${r.duration}</span>
+    </div>
+    <p class="text-xs text-gray-700 leading-tight line-clamp-2">${r.title}</p>`;
+  d.onclick = () => window.location.href = 'video.html';
+  hScroll.appendChild(d);
+});
+
+const relList = document.getElementById('relatedList');
+related.forEach(r => {
+  const d = document.createElement('div');
+  d.className = 'flex gap-3 cursor-pointer';
+  d.innerHTML = `
+    <div class="relative flex-shrink-0 w-28 h-16 rounded-lg overflow-hidden" style="background:${r.gradient}">
+      <div class="absolute inset-0 flex items-center justify-center"><div class="w-7 h-7 rounded-full bg-black bg-opacity-30 flex items-center justify-center"><svg width="10" height="10" viewBox="0 0 24 24" fill="white"><polygon points="5,3 19,12 5,21"/></svg></div></div>
+      <span class="absolute bottom-0.5 right-0.5 bg-black bg-opacity-60 text-white text-xs px-1 rounded">${r.duration}</span>
+    </div>
+    <div class="flex-1"><p class="text-xs font-medium text-gray-800 leading-tight line-clamp-2">${r.title}</p><p class="text-xs text-gray-500 mt-1">${r.author}</p></div>`;
+  d.onclick = () => window.location.href = 'video.html';
+  relList.appendChild(d);
+});
+
+// ─── Share Panel ─────────────────────────────────────────────
+function openShare() {
+  const overlay = document.getElementById('shareOverlay');
+  const bg = document.getElementById('shareBg');
+  const panel = document.getElementById('sharePanel');
+  overlay.style.pointerEvents = 'auto';
+  bg.style.display = 'block';
+  panel.classList.add('open');
+}
+function closeShare() {
+  document.getElementById('shareOverlay').style.pointerEvents = 'none';
+  document.getElementById('shareBg').style.display = 'none';
+  document.getElementById('sharePanel').classList.remove('open');
+}
+function copyLink() { closeShare(); showToast('链接已复制'); }
+
+// ─── Quality Panel ────────────────────────────────────────────
+function openQuality() {
+  document.getElementById('qualityOverlay').style.pointerEvents = 'auto';
+  document.getElementById('qualityBg').style.display = 'block';
+  document.getElementById('qualityPanel').classList.add('open');
+}
+function closeQuality() {
+  document.getElementById('qualityOverlay').style.pointerEvents = 'none';
+  document.getElementById('qualityBg').style.display = 'none';
+  document.getElementById('qualityPanel').classList.remove('open');
+}
+function selectQuality(el, q) {
+  document.querySelectorAll('.quality-option').forEach(o => { o.classList.remove('active'); o.querySelector('.check-icon').classList.add('hidden'); });
+  el.classList.add('active');
+  el.querySelector('.check-icon').classList.remove('hidden');
+  document.getElementById('qualityLabel').textContent = q;
+  setTimeout(closeQuality, 200);
+}
+
+// ─── Speed Panel ──────────────────────────────────────────────
+function openSpeed() {
+  document.getElementById('speedOverlay').style.pointerEvents = 'auto';
+  document.getElementById('speedBg').style.display = 'block';
+  document.getElementById('speedPanel').classList.add('open');
+}
+function closeSpeed() {
+  document.getElementById('speedOverlay').style.pointerEvents = 'none';
+  document.getElementById('speedBg').style.display = 'none';
+  document.getElementById('speedPanel').classList.remove('open');
+}
+function selectSpeed(el, s) {
+  document.querySelectorAll('.speed-option').forEach(o => { o.classList.remove('active'); o.querySelector('.check-icon').classList.add('hidden'); });
+  el.classList.add('active');
+  el.querySelector('.check-icon').classList.remove('hidden');
+  document.getElementById('speedLabel').textContent = s;
+  setTimeout(closeSpeed, 200);
+}
+
+// ─── Comment Input ────────────────────────────────────────────
+function focusComment() {
+  document.getElementById('commentInputOverlay').classList.remove('hidden');
+  setTimeout(() => document.getElementById('commentInput').focus(), 100);
+}
+function closeCommentInput() {
+  document.getElementById('commentInputOverlay').classList.add('hidden');
+}
+function submitComment() {
+  const v = document.getElementById('commentInput').value.trim();
+  if (!v) return;
+  const newC = { user:'我', text:v, likes:0, time:'刚刚', replies:0, avatarBg:'#FF4757' };
+  comments.unshift(newC);
+  renderComments();
+  document.getElementById('commentInput').value = '';
+  closeCommentInput();
+  switchVideoTab(document.querySelectorAll('.video-tab')[1], 'comments');
+  showToast('评论已发布');
+}
+
+// ─── Toast ────────────────────────────────────────────────────
+function showToast(msg) {
+  const t = document.createElement('div');
+  t.className = 'fixed z-50 left-1/2 -translate-x-1/2 bg-black bg-opacity-70 text-white text-xs px-4 py-2 rounded-full pointer-events-none';
+  t.style.bottom = '80px'; t.style.transform = 'translateX(-50%)';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => { t.style.opacity='0'; t.style.transition='opacity 0.3s'; }, 1500);
+  setTimeout(() => t.remove(), 1800);
+}
+</script>
+</body>
+</html>

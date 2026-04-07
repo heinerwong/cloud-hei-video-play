@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#FF4757">
+  <title>黑视频 - 搜索</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root { --primary: #FF4757; }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #f3f4f6; }
+    .safe-top { padding-top: env(safe-area-inset-top, 0px); }
+    .safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
+    .card-shadow { box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .nav-inactive { color: #9ca3af; }
+    @keyframes fadeIn { from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:translateY(0)} }
+    .fade-in { animation: fadeIn 0.2s ease both; }
+    .search-tab { transition: all 0.2s; }
+    .search-tab.active { color:#FF4757; border-bottom:2px solid #FF4757; }
+    .filter-btn { transition: all 0.15s; }
+    .filter-btn.active { background:#FF4757; color:white; }
+    input:focus { outline:none; }
+    .suggestion-item:active { background:#f9fafb; }
+    .hot-badge { width:18px;height:18px;font-size:10px; }
+  </style>
+</head>
+<body class="bg-gray-100">
+
+<!-- Header Search Bar -->
+<header class="fixed top-0 left-0 right-0 z-50 bg-white safe-top" style="box-shadow:0 1px 0 rgba(0,0,0,0.08)">
+  <div class="flex items-center gap-2 px-3 h-12">
+    <button onclick="goBack()" class="p-1 flex-shrink-0">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <div class="flex-1 relative">
+      <div class="flex items-center bg-gray-100 rounded-full px-3 py-2 gap-2">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="searchInput" placeholder="搜索视频、作者、话题" class="flex-1 bg-transparent text-sm text-gray-800 placeholder-gray-400" oninput="handleInput(this.value)" onkeydown="handleKey(event)">
+        <button id="clearBtn" onclick="clearSearch()" class="hidden p-0.5">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="#9ca3af"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15" stroke="white" stroke-width="2"/><line x1="9" y1="9" x2="15" y2="15" stroke="white" stroke-width="2"/></svg>
+        </button>
+      </div>
+    </div>
+    <button onclick="doSearch()" class="text-sm font-medium flex-shrink-0" style="color:#FF4757">搜索</button>
+  </div>
+</header>
+
+<!-- Main -->
+<main class="pt-14 pb-20">
+
+  <!-- Default State: Hot + History -->
+  <div id="defaultView">
+    <!-- Hot Search -->
+    <div class="bg-white mt-2 px-4 py-3">
+      <div class="flex items-center justify-between mb-3">
+        <span class="font-bold text-sm text-gray-800">🔥 热门搜索</span>
+        <button onclick="refreshHot()" class="text-xs text-gray-400">换一批</button>
+      </div>
+      <div id="hotList" class="space-y-0">
+        <!-- injected by JS -->
+      </div>
+    </div>
+
+    <!-- Search History -->
+    <div class="bg-white mt-2 px-4 py-3" id="historySection">
+      <div class="flex items-center justify-between mb-3">
+        <span class="font-bold text-sm text-gray-800">🕐 搜索历史</span>
+        <button onclick="clearAllHistory()" class="text-xs text-gray-400">清除全部</button>
+      </div>
+      <div id="historyList" class="flex flex-wrap gap-2">
+        <!-- injected by JS -->
+      </div>
+      <div id="noHistory" class="text-center text-gray-400 text-sm py-3 hidden">暂无搜索记录</div>
+    </div>
+
+    <!-- Discovery Tags -->
+    <div class="bg-white mt-2 px-4 py-3">
+      <p class="font-bold text-sm text-gray-800 mb-3">💡 发现好内容</p>
+      <div class="grid grid-cols-3 gap-2" id="discoveryGrid">
+        <!-- injected by JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Suggestions (shown while typing) -->
+  <div id="suggestionsView" class="hidden bg-white">
+    <div id="suggestionsList"></div>
+  </div>
+
+  <!-- Results View -->
+  <div id="resultsView" class="hidden">
+    <!-- Tabs -->
+    <div class="bg-white sticky top-14 z-40" style="box-shadow:0 1px 0 rgba(0,0,0,0.06)">
+      <div class="flex">
+        <button class="search-tab active flex-1 py-3 text-sm font-medium text-center" onclick="switchResultTab(this,'videos')">视频</button>
+        <button class="search-tab flex-1 py-3 text-sm font-medium text-center text-gray-500" onclick="switchResultTab(this,'authors')">作者</button>
+        <button class="search-tab flex-1 py-3 text-sm font-medium text-center text-gray-500" onclick="switchResultTab(this,'collections')">合集</button>
+      </div>
+      <!-- Filter bar -->
+      <div class="flex items-center gap-2 px-4 py-2 border-t border-gray-50" id="filterBar">
+        <button class="filter-btn active text-xs px-3 py-1.5 rounded-full bg-red-500 text-white" onclick="setFilter(this,'relevant')">最相关</button>
+        <button class="filter-btn text-xs px-3 py-1.5 rounded-full bg-gray-100 text-gray-600" onclick="setFilter(this,'newest')">最新</button>
+        <button class="filter-btn text-xs px-3 py-1.5 rounded-full bg-gray-100 text-gray-600" onclick="setFilter(this,'hottest')">最热</button>
+        <div class="ml-auto flex items-center gap-1 text-xs text-gray-500">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
+          筛选
+        </div>
+      </div>
+    </div>
+
+    <!-- Video Results -->
+    <div id="videoResults" class="space-y-0.5 mt-0.5"></div>
+    <!-- Author Results -->
+    <div id="authorResults" class="hidden space-y-0.5 mt-0.5"></div>
+    <!-- Collection Results -->
+    <div id="collectionResults" class="hidden space-y-0.5 mt-0.5"></div>
+    <!-- No results -->
+    <div id="noResults" class="hidden flex flex-col items-center justify-center py-16 px-8 text-center">
+      <div class="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center mb-4">
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      </div>
+      <p class="text-gray-800 font-medium mb-1">未找到相关结果</p>
+      <p class="text-gray-400 text-sm mb-4">换个关键词试试</p>
+      <div class="flex flex-wrap gap-2 justify-center" id="noResultsSug"></div>
+    </div>
+  </div>
+
+</main>
+
+<!-- Bottom Navigation -->
+<nav class="fixed bottom-0 left-0 right-0 bg-white z-50 safe-bottom" style="box-shadow:0 -1px 0 rgba(0,0,0,0.08)">
+  <div class="flex h-14">
+    <a href="index.html" class="flex-1 flex flex-col items-center justify-center gap-0.5 nav-inactive">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      <span class="text-xs">首页</span>
+    </a>
+    <a href="search.html" class="flex-1 flex flex-col items-center justify-center gap-0.5" style="color:#FF4757">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="#FF4757" stroke="none"><path d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" stroke="#FF4757" fill="none" stroke-width="2.5" stroke-linecap="round"/></svg>
+      <span class="text-xs font-medium" style="color:#FF4757">搜索</span>
+    </a>
+    <a href="category.html" class="flex-1 flex flex-col items-center justify-center gap-0.5 nav-inactive">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+      <span class="text-xs">发现</span>
+    </a>
+    <a href="profile.html" class="flex-1 flex flex-col items-center justify-center gap-0.5 nav-inactive">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      <span class="text-xs">我的</span>
+    </a>
+  </div>
+</nav>
+
+<script>
+// ─── Data ────────────────────────────────────────────────────
+const hotKeywords = [
+  '全球最美自然奇观', 'Python编程技巧', '2024游戏BGM', '红烧肉做法',
+  '极限运动集锦', '古典音乐入门', '城市夜景摄影', '健身30天计划',
+  '当代年轻人生活', '探秘神秘废墟'
+];
+
+const videoResults = [
+  { title:'【震撼】全球最美的10个自然奇观', author:'自然探索频道', views:'21.4万', duration:'15:32', time:'2天前', gradient:'linear-gradient(135deg,#FF4757,#ff6348)' },
+  { title:'学会这5个技巧，Python编程效率翻倍', author:'Python小课堂', views:'5.8万', duration:'28:14', time:'1天前', gradient:'linear-gradient(135deg,#5352ED,#3742fa)' },
+  { title:'2024最火游戏BGM合集精选版', author:'游戏BGM博主', views:'93.2万', duration:'45:00', time:'3小时前', gradient:'linear-gradient(135deg,#2ed573,#1e9e4d)' },
+  { title:'手把手教你做红烧肉，简单好吃不失败', author:'美食大厨老王', views:'12.6万', duration:'18:45', time:'5小时前', gradient:'linear-gradient(135deg,#ffa502,#e67e22)' },
+  { title:'探秘世界各地神秘废墟遗址', author:'探险达人', views:'8.3万', duration:'22:18', time:'1周前', gradient:'linear-gradient(135deg,#747d8c,#57606f)' },
+  { title:'极限运动精彩瞬间集锦4K版', author:'极限运动集锦', views:'67.1万', duration:'12:05', time:'6小时前', gradient:'linear-gradient(135deg,#00d2d3,#0097a7)' },
+];
+
+const authors = [
+  { name:'自然探索频道', desc:'专注自然地理·环境纪录', subs:'12.4万', gradient:'linear-gradient(135deg,#FF4757,#ff6348)' },
+  { name:'Python小课堂', desc:'编程教学·每日更新', subs:'8.6万', gradient:'linear-gradient(135deg,#5352ED,#3742fa)' },
+  { name:'游戏BGM博主', desc:'游戏音乐·ACGN文化', subs:'34.2万', gradient:'linear-gradient(135deg,#2ed573,#1e9e4d)' },
+  { name:'探险达人', desc:'全球探险·神秘地点', subs:'5.7万', gradient:'linear-gradient(135deg,#747d8c,#57606f)' },
+];
+
+const collections = [
+  { title:'Python零基础到进阶全系列', count:'12集', author:'Python小课堂', gradient:'linear-gradient(135deg,#5352ED,#3742fa)' },
+  { title:'世界自然奇观探索合集', count:'8集', author:'自然探索频道', gradient:'linear-gradient(135deg,#FF4757,#ff6348)' },
+  { title:'极限运动年度精选集', count:'20集', author:'极限运动集锦', gradient:'linear-gradient(135deg,#00d2d3,#0097a7)' },
+];
+
+let searchHistory = ['Python编程', '游戏BGM', '自然奇观', '红烧肉'];
+let currentQuery = '';
+
+const discoveryItems = [
+  { name:'🎮 游戏', bg:'#5352ED' }, { name:'🎵 音乐', bg:'#2ed573' }, { name:'🎬 影视', bg:'#FF4757' },
+  { name:'📚 学习', bg:'#ffa502' }, { name:'😄 搞笑', bg:'#ff6b81' }, { name:'🏋️ 健身', bg:'#00d2d3' },
+];
+
+// ─── Init ────────────────────────────────────────────────────
+function init() {
+  renderHot();
+  renderHistory();
+  renderDiscovery();
+}
+
+function renderHot() {
+  const list = document.getElementById('hotList');
+  list.innerHTML = '';
+  hotKeywords.forEach((kw, i) => {
+    const isTop3 = i < 3;
+    const div = document.createElement('div');
+    div.className = 'flex items-center gap-3 py-2.5 border-b border-gray-50 last:border-0 cursor-pointer';
+    div.innerHTML = `
+      <span class="hot-badge rounded flex items-center justify-center text-xs font-bold flex-shrink-0 ${isTop3 ? 'text-white rounded' : 'text-gray-400'}" style="${isTop3 ? `background:${['#FF4757','#ff7f50','#ffa502'][i]}` : ''}">${i+1}</span>
+      <span class="flex-1 text-sm ${isTop3 ? 'text-gray-800 font-medium' : 'text-gray-700'}">${kw}</span>
+      ${i < 3 ? '<span class="text-xs text-red-400 font-medium">热</span>' : (i === 0 ? '<span class="text-xs text-orange-400">升</span>' : '')}
+    `;
+    div.onclick = () => { document.getElementById('searchInput').value = kw; doSearch(); };
+    list.appendChild(div);
+  });
+}
+
+function renderHistory() {
+  const list = document.getElementById('historyList');
+  const noH = document.getElementById('noHistory');
+  list.innerHTML = '';
+  if (searchHistory.length === 0) { noH.classList.remove('hidden'); return; }
+  noH.classList.add('hidden');
+  searchHistory.forEach(h => {
+    const tag = document.createElement('div');
+    tag.className = 'flex items-center gap-1 bg-gray-100 rounded-full px-3 py-1.5';
+    tag.innerHTML = `<span class="text-sm text-gray-700 cursor-pointer" onclick="quickSearch('${h}')">${h}</span>
+      <button onclick="removeHistory('${h}')" class="ml-1">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="#9ca3af"><line x1="18" y1="6" x2="6" y2="18" stroke="#9ca3af" stroke-width="2"/><line x1="6" y1="6" x2="18" y2="18" stroke="#9ca3af" stroke-width="2"/></svg>
+      </button>`;
+    list.appendChild(tag);
+  });
+}
+
+function renderDiscovery() {
+  const g = document.getElementById('discoveryGrid');
+  discoveryItems.forEach(d => {
+    const btn = document.createElement('button');
+    btn.className = 'rounded-xl py-3 text-white text-sm font-medium';
+    btn.style.background = d.bg;
+    btn.textContent = d.name;
+    btn.onclick = () => { document.getElementById('searchInput').value = d.name.replace(/[^\u4e00-\u9fa5]/g,''); doSearch(); };
+    g.appendChild(btn);
+  });
+}
+
+function refreshHot() {
+  hotKeywords.sort(() => Math.random() - 0.5);
+  renderHot();
+}
+
+// ─── Search Logic ────────────────────────────────────────────
+function handleInput(val) {
+  document.getElementById('clearBtn').classList.toggle('hidden', val.length === 0);
+  if (val.length === 0) { showView('default'); return; }
+  showView('suggestions');
+  renderSuggestions(val);
+}
+
+function handleKey(e) {
+  if (e.key === 'Enter') doSearch();
+}
+
+function renderSuggestions(q) {
+  const list = document.getElementById('suggestionsList');
+  const sugs = hotKeywords.filter(k => k.includes(q) || q.includes(k.slice(0,2))).slice(0,6);
+  const extras = [`${q} 教程`, `${q} 合集`, `${q} 精选`, `${q} 2024`];
+  const all = [...new Set([...sugs, ...extras])].slice(0,8);
+  list.innerHTML = all.map(s => `
+    <div class="suggestion-item flex items-center gap-3 px-4 py-3 border-b border-gray-50 cursor-pointer" onclick="quickSearch('${s}')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <span class="text-sm text-gray-700 flex-1">${s}</span>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#d1d5db" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+    </div>
+  `).join('');
+}
+
+function quickSearch(q) {
+  document.getElementById('searchInput').value = q;
+  doSearch();
+}
+
+function doSearch() {
+  const q = document.getElementById('searchInput').value.trim();
+  if (!q) return;
+  currentQuery = q;
+  if (!searchHistory.includes(q)) {
+    searchHistory.unshift(q);
+    if (searchHistory.length > 10) searchHistory.pop();
+  }
+  showView('results');
+  renderResults(q);
+}
+
+function clearSearch() {
+  document.getElementById('searchInput').value = '';
+  document.getElementById('clearBtn').classList.add('hidden');
+  showView('default');
+}
+
+function removeHistory(h) {
+  searchHistory = searchHistory.filter(x => x !== h);
+  renderHistory();
+}
+
+function clearAllHistory() {
+  searchHistory = [];
+  renderHistory();
+}
+
+function showView(v) {
+  document.getElementById('defaultView').classList.toggle('hidden', v !== 'default');
+  document.getElementById('suggestionsView').classList.toggle('hidden', v !== 'suggestions');
+  document.getElementById('resultsView').classList.toggle('hidden', v !== 'results');
+}
+
+// ─── Result Rendering ─────────────────────────────────────────
+function renderResults(q) {
+  // Video results
+  const vr = document.getElementById('videoResults');
+  const filtered = videoResults.filter(v => v.title.includes(q.slice(0,2)) || Math.random() > 0.3);
+  if (filtered.length === 0) {
+    document.getElementById('noResults').classList.remove('hidden');
+    vr.innerHTML = '';
+    const sg = document.getElementById('noResultsSug');
+    sg.innerHTML = hotKeywords.slice(0,4).map(k => `<button class="bg-gray-100 rounded-full px-3 py-1.5 text-sm text-gray-600" onclick="quickSearch('${k}')">${k}</button>`).join('');
+    return;
+  }
+  document.getElementById('noResults').classList.add('hidden');
+  vr.innerHTML = filtered.map(v => `
+    <div class="bg-white flex gap-3 p-3 cursor-pointer border-b border-gray-50" onclick="window.location.href='video.html'">
+      <div class="relative flex-shrink-0 w-32 h-20 rounded-lg overflow-hidden" style="background:${v.gradient}">
+        <div class="absolute inset-0 flex items-center justify-center">
+          <div class="w-8 h-8 rounded-full bg-black bg-opacity-40 flex items-center justify-center">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><polygon points="5,3 19,12 5,21"/></svg>
+          </div>
+        </div>
+        <span class="absolute bottom-1 right-1 bg-black bg-opacity-70 text-white text-xs px-1 py-0.5 rounded text-xs">${v.duration}</span>
+      </div>
+      <div class="flex-1 min-w-0">
+        <p class="text-sm font-medium text-gray-800 leading-tight line-clamp-2 mb-1">${v.title}</p>
+        <p class="text-xs text-gray-500 mb-1">${v.author}</p>
+        <div class="flex items-center gap-2 text-xs text-gray-400">
+          <span>${v.views}次观看</span><span>·</span><span>${v.time}</span>
+        </div>
+      </div>
+    </div>
+  `).join('');
+
+  // Author results
+  const ar = document.getElementById('authorResults');
+  ar.innerHTML = authors.map(a => `
+    <div class="bg-white flex items-center gap-3 p-4 border-b border-gray-50">
+      <div class="w-14 h-14 rounded-full flex-shrink-0" style="background:${a.gradient}"></div>
+      <div class="flex-1">
+        <p class="font-medium text-gray-800 text-sm">${a.name}</p>
+        <p class="text-xs text-gray-500 mt-0.5">${a.desc}</p>
+        <p class="text-xs text-gray-400 mt-0.5">${a.subs} 订阅者</p>
+      </div>
+      <button class="text-xs px-4 py-1.5 rounded-full border text-red-500 border-red-400 font-medium" onclick="toggleFollow(this)">关注</button>
+    </div>
+  `).join('');
+
+  // Collection results
+  const cr = document.getElementById('collectionResults');
+  cr.innerHTML = collections.map(c => `
+    <div class="bg-white flex gap-3 p-3 border-b border-gray-50 cursor-pointer">
+      <div class="flex-shrink-0 w-24 h-16 rounded-lg overflow-hidden flex items-center justify-center" style="background:${c.gradient}">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+      </div>
+      <div>
+        <p class="text-sm font-medium text-gray-800">${c.title}</p>
+        <p class="text-xs text-gray-500 mt-1">${c.author} · ${c.count}</p>
+      </div>
+    </div>
+  `).join('');
+}
+
+function switchResultTab(el, tab) {
+  document.querySelectorAll('.search-tab').forEach(t => { t.classList.remove('active'); t.classList.add('text-gray-500'); });
+  el.classList.add('active'); el.classList.remove('text-gray-500');
+  document.getElementById('videoResults').classList.toggle('hidden', tab !== 'videos');
+  document.getElementById('authorResults').classList.toggle('hidden', tab !== 'authors');
+  document.getElementById('collectionResults').classList.toggle('hidden', tab !== 'collections');
+  document.getElementById('filterBar').classList.toggle('hidden', tab !== 'videos');
+}
+
+function setFilter(el, type) {
+  document.querySelectorAll('.filter-btn').forEach(b => {
+    b.classList.remove('active'); b.style.background='#f3f4f6'; b.style.color='#4b5563';
+  });
+  el.classList.add('active'); el.style.background='#FF4757'; el.style.color='white';
+}
+
+function toggleFollow(btn) {
+  const isFollowing = btn.textContent === '已关注';
+  btn.textContent = isFollowing ? '关注' : '已关注';
+  btn.style.background = isFollowing ? '' : '#FF4757';
+  btn.style.color = isFollowing ? '#FF4757' : 'white';
+  btn.style.borderColor = isFollowing ? '' : '#FF4757';
+}
+
+function goBack() {
+  if (document.getElementById('resultsView').classList.contains('hidden') === false) {
+    showView('default');
+    document.getElementById('searchInput').value = '';
+    document.getElementById('clearBtn').classList.add('hidden');
+  } else { history.back(); }
+}
+
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#FF4757">
+  <title>黑视频 - 登录</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root { --primary: #FF4757; }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #fff; }
+    .safe-top { padding-top: env(safe-area-inset-top, 12px); }
+    .safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
+    .login-tab { transition: all 0.2s; }
+    .login-tab.active { color:#FF4757; border-bottom:2px solid #FF4757; }
+    input:focus { outline:none; }
+    .input-field { border-bottom:1.5px solid #e5e7eb; transition:border-color 0.2s; }
+    .input-field:focus-within { border-bottom-color:#FF4757; }
+    .social-btn { transition: all 0.15s; }
+    .social-btn:active { transform:scale(0.95); }
+    @keyframes shake { 0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-6px)} 40%,80%{transform:translateX(6px)} }
+    .shake { animation: shake 0.4s ease; }
+    @keyframes fadeInUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+    .fade-in-up { animation: fadeInUp 0.5s ease both; }
+    .form-card { animation: fadeInUp 0.4s ease both; }
+    .countdown-btn:disabled { opacity:0.7; cursor:not-allowed; }
+  </style>
+</head>
+<body class="bg-white min-h-screen flex flex-col safe-bottom">
+
+<!-- Back button -->
+<div class="safe-top px-4 pt-2">
+  <button onclick="goBack()" class="p-1">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+  </button>
+</div>
+
+<!-- Logo + Title -->
+<div class="flex flex-col items-center pt-4 pb-6 fade-in-up">
+  <div class="w-16 h-16 rounded-2xl flex items-center justify-center mb-3" style="background:linear-gradient(135deg,#FF4757,#ff6348)">
+    <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+      <polygon points="8,6 26,16 8,26" fill="white"/>
+    </svg>
+  </div>
+  <h1 class="font-bold text-2xl text-gray-900">黑视频</h1>
+  <p class="text-sm text-gray-400 mt-1">发现精彩，探索无限</p>
+</div>
+
+<!-- Tab Switch -->
+<div class="flex mx-8 mb-6 border-b border-gray-100">
+  <button class="login-tab active flex-1 pb-3 text-base font-medium" id="loginTabBtn" onclick="switchAuthTab('login')">登录</button>
+  <button class="login-tab flex-1 pb-3 text-base font-medium text-gray-400" id="registerTabBtn" onclick="switchAuthTab('register')">注册</button>
+</div>
+
+<!-- Login Form -->
+<div id="loginForm" class="form-card px-8 flex-1">
+  <!-- Method toggle -->
+  <div class="flex gap-4 mb-6">
+    <button class="text-sm font-medium" style="color:#FF4757" id="phoneMethodBtn" onclick="switchMethod('phone')">手机号登录</button>
+    <button class="text-sm text-gray-400" id="emailMethodBtn" onclick="switchMethod('email')">邮箱登录</button>
+  </div>
+
+  <!-- Phone login -->
+  <div id="phoneLogin">
+    <div class="input-field flex items-center gap-3 pb-3 mb-5">
+      <span class="text-gray-400 text-sm flex-shrink-0">+86</span>
+      <span class="text-gray-300">|</span>
+      <input type="tel" id="phoneInput" placeholder="请输入手机号" class="flex-1 text-sm text-gray-800 bg-transparent" maxlength="11">
+    </div>
+    <div class="input-field flex items-center gap-3 pb-3 mb-6">
+      <input type="text" id="codeInput" placeholder="请输入验证码" class="flex-1 text-sm text-gray-800 bg-transparent" maxlength="6">
+      <button id="getCodeBtn" class="countdown-btn text-sm font-medium flex-shrink-0 px-1" style="color:#FF4757" onclick="getVerifyCode()">获取验证码</button>
+    </div>
+  </div>
+
+  <!-- Email login -->
+  <div id="emailLogin" class="hidden">
+    <div class="input-field flex items-center gap-3 pb-3 mb-5">
+      <input type="email" id="emailInput" placeholder="请输入邮箱地址" class="flex-1 text-sm text-gray-800 bg-transparent">
+    </div>
+    <div class="input-field flex items-center gap-3 pb-3 mb-6">
+      <input type="password" id="pwdInput" placeholder="请输入密码" class="flex-1 text-sm text-gray-800 bg-transparent">
+      <button onclick="togglePwd('pwdInput')" class="text-gray-400">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Agreement -->
+  <div class="flex items-start gap-2 mb-5">
+    <div class="w-4 h-4 rounded flex-shrink-0 border border-gray-300 flex items-center justify-center mt-0.5 cursor-pointer" id="agreeCheckLogin" onclick="toggleAgree('login')" style="background:#FF4757;border-color:#FF4757">
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+    </div>
+    <p class="text-xs text-gray-500 leading-relaxed">我已阅读并同意 <span class="text-blue-500 cursor-pointer">《用户协议》</span> 和 <span class="text-blue-500 cursor-pointer">《隐私政策》</span></p>
+  </div>
+
+  <!-- Login button -->
+  <button onclick="doLogin()" class="w-full py-3.5 rounded-xl text-white font-medium text-base mb-4" style="background:#FF4757" id="loginBtn">登录</button>
+
+  <!-- Forgot password -->
+  <div class="flex justify-between mb-6">
+    <span class="text-xs text-gray-400">没有账号？<span class="text-blue-500 cursor-pointer" onclick="switchAuthTab('register')">立即注册</span></span>
+    <span class="text-xs text-blue-500 cursor-pointer">忘记密码？</span>
+  </div>
+
+  <!-- Divider -->
+  <div class="flex items-center gap-3 mb-5">
+    <div class="flex-1 h-px bg-gray-100"></div>
+    <span class="text-xs text-gray-400">其他方式登录</span>
+    <div class="flex-1 h-px bg-gray-100"></div>
+  </div>
+
+  <!-- Third-party login -->
+  <div class="flex justify-center gap-6 mb-6">
+    <button class="social-btn flex flex-col items-center gap-1.5" onclick="socialLogin('微信')">
+      <div class="w-12 h-12 rounded-full flex items-center justify-center" style="background:#07C160">
+        <svg width="24" height="24" viewBox="0 0 50 50" fill="white">
+          <path d="M32.5 18c-7.18 0-13 4.93-13 11s5.82 11 13 11c1.5 0 2.93-.24 4.26-.67l4.74 2.67-1.14-4.27C42.75 35.44 45.5 32 45.5 29c0-6.07-5.82-11-13-11z"/>
+          <path d="M19 8C10.16 8 3 14.04 3 21.5c0 3.93 2.04 7.46 5.27 9.96L7 36l5.35-2.68C13.78 33.73 15.34 34 17 34c.33 0 .66-.01.99-.03-.26-.95-.4-1.94-.4-2.97 0-6.68 5.82-12.11 13-12.11.42 0 .82.02 1.22.05C29.92 13.04 24.97 8 19 8z"/>
+        </svg>
+      </div>
+      <span class="text-xs text-gray-500">微信</span>
+    </button>
+    <button class="social-btn flex flex-col items-center gap-1.5" onclick="socialLogin('QQ')">
+      <div class="w-12 h-12 rounded-full flex items-center justify-center" style="background:#12B7F5">
+        <svg width="24" height="24" viewBox="0 0 50 50" fill="white">
+          <path d="M25 5C14.51 5 6 12.95 6 22.75c0 5.7 2.81 10.78 7.2 14.12-.37 1.56-.93 3.58-1.2 4.38C11.5 43 12.3 43 13 42.5l5.5-4c2.07.63 4.25.97 6.5.97 10.49 0 19-7.95 19-17.72S35.49 5 25 5z"/>
+        </svg>
+      </div>
+      <span class="text-xs text-gray-500">QQ</span>
+    </button>
+    <button class="social-btn flex flex-col items-center gap-1.5" onclick="socialLogin('微博')">
+      <div class="w-12 h-12 rounded-full flex items-center justify-center" style="background:#E02020">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+          <path d="M10.098 20.323c-3.977.391-7.414-1.406-7.672-4.02-.259-2.609 2.759-5.047 6.74-5.441 3.979-.394 7.413 1.404 7.671 4.018.258 2.614-2.761 5.047-6.739 5.443zM21.5 9.5c-.667-.334-1.5-.5-2.5-.5.5-1.5.5-3 0-4.5-2 0-3.5.5-4.5 1.5l-.5-1c-1.5.5-2.5 1.5-2.5 3 .5-.5 1-1 2-1.5-1.5 1-2 2.5-2 4.5.5 0 1 .5 1.5.5-.5.5-1.5.5-2.5.5-3.5 0-6.5 2-6.5 5 0 3 3 5 7 5s8-2 8-5c0-1.5-.5-2.5-1.5-3.5 1 0 2-.5 3-1.5 0 .5 0 1-.5 1.5 1-1 2-2.5 2-4z"/>
+        </svg>
+      </div>
+      <span class="text-xs text-gray-500">微博</span>
+    </button>
+    <button class="social-btn flex flex-col items-center gap-1.5" onclick="socialLogin('Apple')">
+      <div class="w-12 h-12 rounded-full bg-black flex items-center justify-center">
+        <svg width="20" height="24" viewBox="0 0 20 24" fill="white">
+          <path d="M16.52 12.7c-.03-3.04 2.48-4.5 2.59-4.57-1.41-2.07-3.61-2.35-4.39-2.38-1.87-.19-3.65 1.1-4.6 1.1-.95 0-2.42-1.07-3.98-1.04-2.04.03-3.93 1.19-4.98 3.01-2.12 3.68-.54 9.15 1.52 12.14 1.01 1.46 2.21 3.11 3.8 3.05 1.53-.06 2.11-.99 3.96-.99 1.84 0 2.37.99 3.99.96 1.64-.03 2.69-1.49 3.69-2.95 1.16-1.69 1.64-3.32 1.67-3.4-.04-.02-3.22-1.24-3.27-4.93z"/>
+          <path d="M13.52 3.83C14.35 2.82 14.9 1.42 14.74 0c-1.21.05-2.67.81-3.53 1.81-.78.89-1.46 2.32-1.28 3.68 1.35.11 2.72-.69 3.59-1.66z"/>
+        </svg>
+      </div>
+      <span class="text-xs text-gray-500">Apple</span>
+    </button>
+  </div>
+
+  <!-- Tourist mode -->
+  <div class="text-center pb-4">
+    <button onclick="guestMode()" class="text-sm text-gray-400">游客模式浏览 →</button>
+  </div>
+</div>
+
+<!-- Register Form -->
+<div id="registerForm" class="form-card px-8 flex-1 hidden">
+  <div class="space-y-4 mb-5">
+    <div class="input-field flex items-center gap-3 pb-3">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      <input type="text" id="regUsername" placeholder="设置用户名" class="flex-1 text-sm text-gray-800 bg-transparent">
+    </div>
+    <div class="input-field flex items-center gap-3 pb-3">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+      <span class="text-gray-400 text-sm flex-shrink-0">+86</span>
+      <span class="text-gray-300">|</span>
+      <input type="tel" id="regPhone" placeholder="手机号" class="flex-1 text-sm text-gray-800 bg-transparent" maxlength="11">
+    </div>
+    <div class="input-field flex items-center gap-3 pb-3">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 8 12 12 14 14"/></svg>
+      <input type="text" id="regCode" placeholder="验证码" class="flex-1 text-sm text-gray-800 bg-transparent" maxlength="6">
+      <button id="regCodeBtn" class="countdown-btn text-sm font-medium flex-shrink-0 px-1" style="color:#FF4757" onclick="getRegCode()">获取验证码</button>
+    </div>
+    <div class="input-field flex items-center gap-3 pb-3">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      <input type="password" id="regPwd" placeholder="设置密码（6-20位）" class="flex-1 text-sm text-gray-800 bg-transparent">
+      <button onclick="togglePwd('regPwd')">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+      </button>
+    </div>
+    <div class="input-field flex items-center gap-3 pb-3">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      <input type="password" id="regPwdConfirm" placeholder="确认密码" class="flex-1 text-sm text-gray-800 bg-transparent">
+    </div>
+  </div>
+
+  <!-- Agreement -->
+  <div class="flex items-start gap-2 mb-5">
+    <div class="w-4 h-4 rounded flex-shrink-0 border border-gray-300 flex items-center justify-center mt-0.5 cursor-pointer" id="agreeCheckReg" onclick="toggleAgree('reg')">
+    </div>
+    <p class="text-xs text-gray-500 leading-relaxed">我已阅读并同意 <span class="text-blue-500">《用户协议》</span> 和 <span class="text-blue-500">《隐私政策》</span>，同意接收相关通知</p>
+  </div>
+
+  <button onclick="doRegister()" class="w-full py-3.5 rounded-xl text-white font-medium text-base mb-4" style="background:#FF4757">注册账号</button>
+  <div class="text-center pb-4">
+    <span class="text-xs text-gray-400">已有账号？<span class="text-blue-500 cursor-pointer" onclick="switchAuthTab('login')">立即登录</span></span>
+  </div>
+</div>
+
+<!-- Error message -->
+<div id="errorMsg" class="fixed top-20 left-4 right-4 z-50 bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-600 text-center opacity-0 transition-all duration-300 pointer-events-none"></div>
+
+<script>
+// ─── Tab switching ─────────────────────────────────────────────
+function switchAuthTab(tab) {
+  const isLogin = tab === 'login';
+  document.getElementById('loginTabBtn').classList.toggle('active', isLogin);
+  document.getElementById('loginTabBtn').classList.toggle('text-gray-400', !isLogin);
+  document.getElementById('registerTabBtn').classList.toggle('active', !isLogin);
+  document.getElementById('registerTabBtn').classList.toggle('text-gray-400', isLogin);
+  document.getElementById('loginForm').classList.toggle('hidden', !isLogin);
+  document.getElementById('registerForm').classList.toggle('hidden', isLogin);
+}
+
+// ─── Method switching (phone / email) ─────────────────────────
+function switchMethod(method) {
+  const isPhone = method === 'phone';
+  document.getElementById('phoneMethodBtn').style.color = isPhone ? '#FF4757' : '';
+  document.getElementById('phoneMethodBtn').style.fontWeight = isPhone ? '600' : '400';
+  document.getElementById('emailMethodBtn').style.color = isPhone ? '' : '#FF4757';
+  document.getElementById('emailMethodBtn').style.fontWeight = isPhone ? '400' : '600';
+  document.getElementById('phoneLogin').classList.toggle('hidden', !isPhone);
+  document.getElementById('emailLogin').classList.toggle('hidden', isPhone);
+}
+
+// ─── Verify code countdown ────────────────────────────────────
+function startCountdown(btnId) {
+  const btn = document.getElementById(btnId);
+  let secs = 60;
+  btn.disabled = true;
+  btn.style.color = '#9ca3af';
+  const timer = setInterval(() => {
+    secs--;
+    btn.textContent = `${secs}s后重发`;
+    if (secs <= 0) {
+      clearInterval(timer);
+      btn.disabled = false;
+      btn.textContent = '获取验证码';
+      btn.style.color = '#FF4757';
+    }
+  }, 1000);
+}
+
+function getVerifyCode() {
+  const phone = document.getElementById('phoneInput').value;
+  if (!/^1[3-9]\d{9}$/.test(phone)) { showError('请输入正确的手机号'); return; }
+  startCountdown('getCodeBtn');
+  showSuccess('验证码已发送：123456（演示）');
+}
+
+function getRegCode() {
+  const phone = document.getElementById('regPhone').value;
+  if (!/^1[3-9]\d{9}$/.test(phone)) { showError('请输入正确的手机号'); return; }
+  startCountdown('regCodeBtn');
+  showSuccess('验证码已发送：123456（演示）');
+}
+
+// ─── Agreement checkbox ────────────────────────────────────────
+let loginAgreed = true, regAgreed = false;
+function toggleAgree(type) {
+  if (type === 'login') {
+    loginAgreed = !loginAgreed;
+    const box = document.getElementById('agreeCheckLogin');
+    box.style.background = loginAgreed ? '#FF4757' : '';
+    box.style.borderColor = loginAgreed ? '#FF4757' : '';
+    box.innerHTML = loginAgreed ? '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>' : '';
+  } else {
+    regAgreed = !regAgreed;
+    const box = document.getElementById('agreeCheckReg');
+    box.style.background = regAgreed ? '#FF4757' : '';
+    box.style.borderColor = regAgreed ? '#FF4757' : '';
+    box.innerHTML = regAgreed ? '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>' : '';
+  }
+}
+
+// ─── Login ─────────────────────────────────────────────────────
+function doLogin() {
+  if (!loginAgreed) { showError('请先同意用户协议'); return; }
+  const method = document.getElementById('phoneLogin').classList.contains('hidden') ? 'email' : 'phone';
+  if (method === 'phone') {
+    const phone = document.getElementById('phoneInput').value;
+    const code = document.getElementById('codeInput').value;
+    if (!phone) { shakeField('phoneInput'); showError('请输入手机号'); return; }
+    if (!code) { shakeField('codeInput'); showError('请输入验证码'); return; }
+  } else {
+    const email = document.getElementById('emailInput').value;
+    const pwd = document.getElementById('pwdInput').value;
+    if (!email) { shakeField('emailInput'); showError('请输入邮箱'); return; }
+    if (!pwd) { shakeField('pwdInput'); showError('请输入密码'); return; }
+  }
+  const btn = document.getElementById('loginBtn');
+  btn.textContent = '登录中...';
+  btn.disabled = true;
+  setTimeout(() => {
+    showSuccess('登录成功！');
+    setTimeout(() => window.location.href = 'index.html', 800);
+  }, 1200);
+}
+
+// ─── Register ─────────────────────────────────────────────────
+function doRegister() {
+  if (!regAgreed) { showError('请先同意用户协议和隐私政策'); return; }
+  const u = document.getElementById('regUsername').value;
+  const p = document.getElementById('regPhone').value;
+  const c = document.getElementById('regCode').value;
+  const pwd = document.getElementById('regPwd').value;
+  const confirm = document.getElementById('regPwdConfirm').value;
+  if (!u) { showError('请输入用户名'); return; }
+  if (!/^1[3-9]\d{9}$/.test(p)) { showError('请输入正确的手机号'); return; }
+  if (!c) { showError('请输入验证码'); return; }
+  if (pwd.length < 6) { showError('密码至少6位'); return; }
+  if (pwd !== confirm) { showError('两次密码不一致'); return; }
+  showSuccess('注册成功！正在跳转...');
+  setTimeout(() => window.location.href = 'index.html', 1200);
+}
+
+// ─── Social login ──────────────────────────────────────────────
+function socialLogin(platform) {
+  showSuccess(`正在使用${platform}登录...`);
+  setTimeout(() => window.location.href = 'index.html', 1000);
+}
+
+function guestMode() {
+  showSuccess('已进入游客模式');
+  setTimeout(() => window.location.href = 'index.html', 800);
+}
+
+// ─── Password visibility ───────────────────────────────────────
+function togglePwd(inputId) {
+  const input = document.getElementById(inputId);
+  input.type = input.type === 'password' ? 'text' : 'password';
+}
+
+// ─── Helpers ──────────────────────────────────────────────────
+function shakeField(id) {
+  const el = document.getElementById(id);
+  el.parentElement.classList.add('shake');
+  setTimeout(() => el.parentElement.classList.remove('shake'), 400);
+}
+
+function showError(msg) {
+  const el = document.getElementById('errorMsg');
+  el.textContent = msg;
+  el.style.background = '#fff1f1';
+  el.style.borderColor = '#fca5a5';
+  el.style.color = '#dc2626';
+  el.style.opacity = '1';
+  el.style.pointerEvents = 'auto';
+  clearTimeout(el._timer);
+  el._timer = setTimeout(() => { el.style.opacity = '0'; el.style.pointerEvents = 'none'; }, 3000);
+}
+
+function showSuccess(msg) {
+  const el = document.getElementById('errorMsg');
+  el.textContent = msg;
+  el.style.background = '#f0fff4';
+  el.style.borderColor = '#a7f3d0';
+  el.style.color = '#059669';
+  el.style.opacity = '1';
+  el.style.pointerEvents = 'auto';
+  clearTimeout(el._timer);
+  el._timer = setTimeout(() => { el.style.opacity = '0'; el.style.pointerEvents = 'none'; }, 2500);
+}
+
+function goBack() {
+  if (history.length > 1) history.back();
+  else window.location.href = 'index.html';
+}
+</script>
+</body>
+</html>
