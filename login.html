@@ -205,6 +205,7 @@
 
 <script>
 // ─── Helpers ──────────────────────────────────────────────────
+// Validates Chinese mainland mobile numbers (starts with 1, second digit 3-9, 11 digits total)
 function isValidPhone(phone) { return /^1[3-9]\d{9}$/.test(phone); }
 
 // ─── Tab switching ─────────────────────────────────────────────
