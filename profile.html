@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#FF4757">
+  <title>黑视频 - 我的</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root { --primary: #FF4757; }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #f3f4f6; }
+    .safe-top { padding-top: env(safe-area-inset-top, 0px); }
+    .safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
+    .card-shadow { box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .nav-inactive { color: #9ca3af; }
+    .profile-tab { transition: all 0.2s; }
+    .profile-tab.active { color:#FF4757; border-bottom:2px solid #FF4757; }
+    @keyframes slideUp { from{transform:translateY(100%)} to{transform:translateY(0)} }
+    .slide-up { animation: slideUp 0.3s ease; }
+    .scrollbar-hide::-webkit-scrollbar { display:none; }
+    .scrollbar-hide { -ms-overflow-style:none; scrollbar-width:none; }
+    .menu-item { transition: background 0.1s; }
+    .menu-item:active { background: #f9fafb; }
+    .settings-panel { transform:translateX(100%); transition:transform 0.3s cubic-bezier(0.25,0.46,0.45,0.94); }
+    .settings-panel.open { transform:translateX(0); }
+    .stat-num { font-variant-numeric: tabular-nums; }
+    .video-grid-item:active { opacity:0.8; }
+    @keyframes fadeIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+    .fade-in { animation: fadeIn 0.3s ease both; }
+  </style>
+</head>
+<body class="bg-gray-100">
+
+<!-- Header -->
+<header class="fixed top-0 left-0 right-0 z-50 bg-white safe-top" style="box-shadow:0 1px 0 rgba(0,0,0,0.08)">
+  <div class="flex items-center justify-between px-4 h-12">
+    <span class="font-bold text-base text-gray-800">个人中心</span>
+    <div class="flex items-center gap-3">
+      <button onclick="openSettings()">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<!-- Main Content -->
+<main class="pt-12 pb-20">
+
+  <!-- Login Prompt (shown when not logged in) -->
+  <div id="loginPrompt" class="bg-white px-4 py-8 flex flex-col items-center hidden">
+    <div class="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center mb-4">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#d1d5db" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+    </div>
+    <p class="text-gray-800 font-medium mb-1">登录后享受更多功能</p>
+    <p class="text-gray-400 text-sm mb-5">收藏视频、关注作者、发布评论</p>
+    <button onclick="window.location.href='login.html'" class="w-48 py-3 rounded-full text-white font-medium" style="background:#FF4757">立即登录</button>
+    <button onclick="toggleLoginState()" class="mt-3 text-sm text-gray-400">游客模式浏览</button>
+  </div>
+
+  <!-- Profile Card (logged in state) -->
+  <div id="profileCard" class="bg-white px-4 pt-6 pb-4">
+    <!-- Avatar and basic info -->
+    <div class="flex items-start gap-4 mb-4">
+      <div class="relative">
+        <div class="w-20 h-20 rounded-full" style="background:linear-gradient(135deg,#FF4757,#ff6348)"></div>
+        <div class="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-white flex items-center justify-center card-shadow cursor-pointer">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        </div>
+      </div>
+      <div class="flex-1">
+        <h2 class="font-bold text-lg text-gray-900">视频爱好者_Leo</h2>
+        <p class="text-xs text-gray-400 mt-0.5">UID: 10086420</p>
+        <p class="text-xs text-gray-500 mt-1.5 leading-relaxed">热爱探索，热爱生活，分享有趣的世界 🌍</p>
+        <button onclick="window.location.href='login.html'" class="mt-2 px-4 py-1.5 border border-gray-300 rounded-full text-xs text-gray-700 font-medium">编辑资料</button>
+      </div>
+    </div>
+
+    <!-- Stats row -->
+    <div class="flex items-center justify-around py-3 border-t border-gray-50">
+      <div class="text-center cursor-pointer" onclick="showToastMsg('关注列表')">
+        <p class="stat-num font-bold text-gray-900 text-lg">128</p>
+        <p class="text-xs text-gray-400 mt-0.5">关注</p>
+      </div>
+      <div class="w-px h-8 bg-gray-100"></div>
+      <div class="text-center cursor-pointer" onclick="showToastMsg('粉丝列表')">
+        <p class="stat-num font-bold text-gray-900 text-lg">4.2万</p>
+        <p class="text-xs text-gray-400 mt-0.5">粉丝</p>
+      </div>
+      <div class="w-px h-8 bg-gray-100"></div>
+      <div class="text-center cursor-pointer" onclick="showToastMsg('获赞详情')">
+        <p class="stat-num font-bold text-gray-900 text-lg">18.6万</p>
+        <p class="text-xs text-gray-400 mt-0.5">获赞</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick Menu -->
+  <div class="bg-white mt-2 px-4 py-3 grid grid-cols-4 gap-2">
+    <button class="flex flex-col items-center gap-1.5 p-2 rounded-xl" onclick="showToastMsg('我的关注')">
+      <div class="w-10 h-10 rounded-full flex items-center justify-center" style="background:#fff0f1">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF4757" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      </div>
+      <span class="text-xs text-gray-600">我的关注</span>
+    </button>
+    <button class="flex flex-col items-center gap-1.5 p-2 rounded-xl" onclick="switchTab(document.querySelectorAll('.profile-tab')[2],'history')">
+      <div class="w-10 h-10 rounded-full flex items-center justify-center" style="background:#f0f4ff">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5352ED" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      </div>
+      <span class="text-xs text-gray-600">观看历史</span>
+    </button>
+    <button class="flex flex-col items-center gap-1.5 p-2 rounded-xl" onclick="switchTab(document.querySelectorAll('.profile-tab')[1],'favorites')">
+      <div class="w-10 h-10 rounded-full flex items-center justify-center" style="background:#fffbf0">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffa502" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+      </div>
+      <span class="text-xs text-gray-600">收藏夹</span>
+    </button>
+    <button class="flex flex-col items-center gap-1.5 p-2 rounded-xl" onclick="showToastMsg('稍后再看')">
+      <div class="w-10 h-10 rounded-full flex items-center justify-center" style="background:#f0fff4">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2ed573" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      </div>
+      <span class="text-xs text-gray-600">稍后再看</span>
+    </button>
+  </div>
+
+  <!-- Tabs + Content -->
+  <div class="bg-white mt-2">
+    <div class="flex border-b border-gray-100 sticky top-12 bg-white z-20">
+      <button class="profile-tab active flex-1 py-3 text-sm font-medium text-center" onclick="switchTab(this,'posts')">投稿</button>
+      <button class="profile-tab flex-1 py-3 text-sm font-medium text-center text-gray-500" onclick="switchTab(this,'favorites')">收藏</button>
+      <button class="profile-tab flex-1 py-3 text-sm font-medium text-center text-gray-500" onclick="switchTab(this,'history')">历史</button>
+    </div>
+
+    <!-- Posts Tab -->
+    <div id="postsTab" class="p-3">
+      <div class="grid grid-cols-3 gap-2" id="postsGrid"></div>
+      <div class="text-center py-6 text-gray-400 text-sm hidden" id="noPostsMsg">还没有投稿，去发布你的第一个视频吧</div>
+    </div>
+
+    <!-- Favorites Tab -->
+    <div id="favoritesTab" class="hidden p-3">
+      <div class="grid grid-cols-3 gap-2" id="favoritesGrid"></div>
+    </div>
+
+    <!-- History Tab -->
+    <div id="historyTab" class="hidden">
+      <div class="flex items-center justify-between px-4 py-2.5 border-b border-gray-50">
+        <span class="text-xs text-gray-500">共 8 条记录</span>
+        <button class="text-xs text-red-400" onclick="clearAllHistory()">清除全部</button>
+      </div>
+      <div id="historyList" class="divide-y divide-gray-50"></div>
+    </div>
+  </div>
+
+</main>
+
+<!-- Bottom Navigation -->
+<nav class="fixed bottom-0 left-0 right-0 bg-white z-50 safe-bottom" style="box-shadow:0 -1px 0 rgba(0,0,0,0.08)">
+  <div class="flex h-14">
+    <a href="index.html" class="flex-1 flex flex-col items-center justify-center gap-0.5 nav-inactive">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      <span class="text-xs">首页</span>
+    </a>
+    <a href="search.html" class="flex-1 flex flex-col items-center justify-center gap-0.5 nav-inactive">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <span class="text-xs">搜索</span>
+    </a>
+    <a href="category.html" class="flex-1 flex flex-col items-center justify-center gap-0.5 nav-inactive">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+      <span class="text-xs">发现</span>
+    </a>
+    <a href="profile.html" class="flex-1 flex flex-col items-center justify-center gap-0.5" style="color:#FF4757">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="#FF4757" stroke="none"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" fill="none" stroke="#FF4757" stroke-width="2.5" stroke-linecap="round"/><circle cx="12" cy="7" r="4" fill="#FF4757"/></svg>
+      <span class="text-xs font-medium" style="color:#FF4757">我的</span>
+    </a>
+  </div>
+</nav>
+
+<!-- Settings Panel (slide from right) -->
+<div class="fixed inset-0 z-50 pointer-events-none" id="settingsOverlay">
+  <div class="absolute inset-0 bg-black bg-opacity-40" style="display:none" id="settingsBg" onclick="closeSettings()"></div>
+  <div class="absolute top-0 right-0 bottom-0 w-80 bg-white settings-panel safe-top" id="settingsPanel">
+    <div class="flex items-center justify-between px-4 h-12 border-b border-gray-100">
+      <span class="font-bold text-gray-800">设置</span>
+      <button onclick="closeSettings()">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="divide-y divide-gray-50">
+      <div class="menu-item px-4 py-4 flex items-center justify-between cursor-pointer">
+        <div class="flex items-center gap-3">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <span class="text-sm text-gray-800">账号信息</span>
+        </div>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>
+      <div class="menu-item px-4 py-4 flex items-center justify-between cursor-pointer">
+        <div class="flex items-center gap-3">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          <span class="text-sm text-gray-800">通知设置</span>
+        </div>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>
+      <div class="menu-item px-4 py-4 flex items-center justify-between cursor-pointer" onclick="toggleDarkMode(this)">
+        <div class="flex items-center gap-3">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          <span class="text-sm text-gray-800">夜间模式</span>
+        </div>
+        <div class="w-10 h-5 bg-gray-200 rounded-full relative transition-colors" id="darkToggle">
+          <div class="w-4 h-4 bg-white rounded-full absolute top-0.5 left-0.5 transition-transform shadow" id="darkThumb"></div>
+        </div>
+      </div>
+      <div class="menu-item px-4 py-4 flex items-center justify-between cursor-pointer">
+        <div class="flex items-center gap-3">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          <span class="text-sm text-gray-800">播放设置</span>
+        </div>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>
+      <div class="menu-item px-4 py-4 flex items-center justify-between cursor-pointer">
+        <div class="flex items-center gap-3">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <span class="text-sm text-gray-800">隐私设置</span>
+        </div>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>
+      <div class="menu-item px-4 py-4 flex items-center justify-between cursor-pointer">
+        <div class="flex items-center gap-3">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          <span class="text-sm text-gray-800">帮助与反馈</span>
+        </div>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>
+      <div class="px-4 py-4">
+        <button onclick="logout()" class="w-full py-3 rounded-xl border border-red-200 text-red-500 text-sm font-medium">退出登录</button>
+      </div>
+      <div class="px-4 py-2 text-center">
+        <p class="text-xs text-gray-300">黑视频 v2.4.1</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── Data ─────────────────────────────────────────────────────
+const postVideos = [
+  { title:'我拍的城市夜景', duration:'5:22', gradient:'linear-gradient(135deg,#FF4757,#ff6348)', views:'1.2万' },
+  { title:'旅途中的风景', duration:'8:45', gradient:'linear-gradient(135deg,#5352ED,#3742fa)', views:'8.6千' },
+  { title:'日常vlog记录', duration:'12:30', gradient:'linear-gradient(135deg,#2ed573,#1e9e4d)', views:'3.4千' },
+];
+const favVideos = [
+  { title:'【震撼】全球最美的10个自然奇观', duration:'15:32', gradient:'linear-gradient(135deg,#FF4757,#ff6348)', views:'21.4万' },
+  { title:'学会这5个技巧，Python效率翻倍', duration:'28:14', gradient:'linear-gradient(135deg,#5352ED,#3742fa)', views:'5.8万' },
+  { title:'2024最火游戏BGM合集', duration:'45:00', gradient:'linear-gradient(135deg,#2ed573,#1e9e4d)', views:'93.2万' },
+  { title:'手把手教你做红烧肉', duration:'18:45', gradient:'linear-gradient(135deg,#ffa502,#e67e22)', views:'12.6万' },
+  { title:'极限运动精彩瞬间集锦', duration:'12:05', gradient:'linear-gradient(135deg,#00d2d3,#0097a7)', views:'67.1万' },
+  { title:'古典音乐入门指南', duration:'41:30', gradient:'linear-gradient(135deg,#a29bfe,#6c5ce7)', views:'3.2万' },
+];
+let historyVideos = [
+  { title:'【震撼】全球最美的10个自然奇观', author:'自然探索频道', progress:65, time:'今天 14:32', gradient:'linear-gradient(135deg,#FF4757,#ff6348)' },
+  { title:'学会这5个技巧，Python编程效率翻倍', author:'Python小课堂', progress:100, time:'今天 11:05', gradient:'linear-gradient(135deg,#5352ED,#3742fa)' },
+  { title:'2024最火游戏BGM合集精选', author:'游戏BGM博主', progress:30, time:'昨天 22:15', gradient:'linear-gradient(135deg,#2ed573,#1e9e4d)' },
+  { title:'手把手教你做红烧肉，简单好吃不失败', author:'美食大厨老王', progress:45, time:'昨天 18:40', gradient:'linear-gradient(135deg,#ffa502,#e67e22)' },
+  { title:'探秘世界各地神秘废墟遗址', author:'探险达人', progress:80, time:'2天前', gradient:'linear-gradient(135deg,#747d8c,#57606f)' },
+  { title:'当代年轻人的真实生活状态纪录', author:'生活记录者', progress:20, time:'3天前', gradient:'linear-gradient(135deg,#ff6b81,#c44569)' },
+  { title:'极限运动精彩瞬间集锦4K版', author:'极限运动集锦', progress:100, time:'4天前', gradient:'linear-gradient(135deg,#00d2d3,#0097a7)' },
+  { title:'古典音乐入门指南 从零开始听懂巴赫', author:'古典音乐爱好者', progress:55, time:'1周前', gradient:'linear-gradient(135deg,#a29bfe,#6c5ce7)' },
+];
+
+// ─── Init ─────────────────────────────────────────────────────
+function init() {
+  renderVideoGrid('postsGrid', postVideos);
+  renderVideoGrid('favoritesGrid', favVideos);
+  renderHistory();
+}
+
+function renderVideoGrid(containerId, items) {
+  const g = document.getElementById(containerId);
+  g.innerHTML = '';
+  items.forEach((v, i) => {
+    const d = document.createElement('div');
+    d.className = 'video-grid-item cursor-pointer fade-in';
+    d.style.animationDelay = `${i * 0.05}s`;
+    d.innerHTML = `
+      <div class="relative rounded-lg overflow-hidden" style="padding-top:56.25%;background:${v.gradient}">
+        <div class="absolute inset-0 flex items-center justify-center">
+          <div class="w-7 h-7 rounded-full bg-black bg-opacity-30 flex items-center justify-center">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="white"><polygon points="5,3 19,12 5,21"/></svg>
+          </div>
+        </div>
+        <span class="absolute bottom-1 right-1 text-white text-xs bg-black bg-opacity-60 px-1 rounded">${v.duration}</span>
+      </div>
+      <p class="text-xs text-gray-700 mt-1 leading-tight line-clamp-2">${v.title}</p>
+      <p class="text-xs text-gray-400 mt-0.5">${v.views || ''}</p>`;
+    d.onclick = () => window.location.href = 'video.html';
+    g.appendChild(d);
+  });
+}
+
+function renderHistory() {
+  const list = document.getElementById('historyList');
+  list.innerHTML = '';
+  historyVideos.forEach((v, i) => {
+    const d = document.createElement('div');
+    d.className = 'flex items-center gap-3 px-4 py-3';
+    d.innerHTML = `
+      <div class="relative flex-shrink-0 w-24 h-14 rounded-lg overflow-hidden cursor-pointer" style="background:${v.gradient}" onclick="window.location.href='video.html'">
+        <div class="absolute inset-0 flex items-center justify-center">
+          <div class="w-7 h-7 rounded-full bg-black bg-opacity-30 flex items-center justify-center">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="white"><polygon points="5,3 19,12 5,21"/></svg>
+          </div>
+        </div>
+        <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-white bg-opacity-30">
+          <div class="h-full" style="width:${v.progress}%;background:#FF4757"></div>
+        </div>
+        ${v.progress === 100 ? '<div class="absolute top-1 right-1 bg-black bg-opacity-60 text-white text-xs px-1 rounded">已看完</div>' : ''}
+      </div>
+      <div class="flex-1 min-w-0 cursor-pointer" onclick="window.location.href='video.html'">
+        <p class="text-xs font-medium text-gray-800 leading-tight line-clamp-2">${v.title}</p>
+        <p class="text-xs text-gray-500 mt-1">${v.author}</p>
+        <p class="text-xs text-gray-400 mt-0.5">${v.time}</p>
+      </div>
+      <button class="flex-shrink-0 p-2" onclick="removeHistory(${i})">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d1d5db" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>`;
+    list.appendChild(d);
+  });
+}
+
+function removeHistory(i) {
+  historyVideos.splice(i, 1);
+  renderHistory();
+  showToastMsg('已删除');
+}
+
+function clearAllHistory() {
+  historyVideos = [];
+  renderHistory();
+  showToastMsg('已清除全部历史');
+}
+
+// ─── Tabs ─────────────────────────────────────────────────────
+function switchTab(el, tab) {
+  document.querySelectorAll('.profile-tab').forEach(t => { t.classList.remove('active'); t.classList.add('text-gray-500'); });
+  el.classList.add('active'); el.classList.remove('text-gray-500');
+  document.getElementById('postsTab').classList.toggle('hidden', tab !== 'posts');
+  document.getElementById('favoritesTab').classList.toggle('hidden', tab !== 'favorites');
+  document.getElementById('historyTab').classList.toggle('hidden', tab !== 'history');
+}
+
+// ─── Settings Panel ────────────────────────────────────────────
+function openSettings() {
+  document.getElementById('settingsOverlay').style.pointerEvents = 'auto';
+  document.getElementById('settingsBg').style.display = 'block';
+  document.getElementById('settingsPanel').classList.add('open');
+}
+function closeSettings() {
+  document.getElementById('settingsOverlay').style.pointerEvents = 'none';
+  document.getElementById('settingsBg').style.display = 'none';
+  document.getElementById('settingsPanel').classList.remove('open');
+}
+
+let darkMode = false;
+function toggleDarkMode(item) {
+  darkMode = !darkMode;
+  const toggle = document.getElementById('darkToggle');
+  const thumb = document.getElementById('darkThumb');
+  toggle.style.background = darkMode ? '#FF4757' : '';
+  thumb.style.transform = darkMode ? 'translateX(20px)' : '';
+  showToastMsg(darkMode ? '夜间模式已开启' : '夜间模式已关闭');
+}
+
+function logout() {
+  closeSettings();
+  showToastMsg('已退出登录');
+  setTimeout(() => window.location.href = 'login.html', 1000);
+}
+
+// ─── Login state toggle (demo) ────────────────────────────────
+function toggleLoginState() {
+  document.getElementById('loginPrompt').classList.add('hidden');
+  document.getElementById('profileCard').classList.remove('hidden');
+}
+
+// ─── Toast ────────────────────────────────────────────────────
+function showToastMsg(msg) {
+  const t = document.createElement('div');
+  t.className = 'fixed z-50 left-1/2 bg-black bg-opacity-70 text-white text-xs px-4 py-2 rounded-full pointer-events-none';
+  t.style.bottom = '90px'; t.style.transform = 'translateX(-50%)';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => { t.style.opacity='0'; t.style.transition='opacity 0.3s'; }, 1500);
+  setTimeout(() => t.remove(), 1800);
+}
+
+init();
+</script>
+</body>
+</html>
