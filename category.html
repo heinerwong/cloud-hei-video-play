@@ -182,6 +182,12 @@ const allVideos = [
   { title:'古典音乐入门指南 从零开始听懂巴赫', author:'古典音乐爱好者', views:'3.2万', time:'2周前', duration:'41:30', cat:'音乐', gradient:'linear-gradient(135deg,#a29bfe,#6c5ce7)' },
 ];
 
+// ─── Helpers ──────────────────────────────────────────────────
+function durationToSeconds(duration) {
+  const [m, s] = duration.split(':').map(Number);
+  return m * 60 + s;
+}
+
 // ─── Init ─────────────────────────────────────────────────────
 function init() {
   renderCategories();
@@ -326,8 +332,7 @@ function setSort(el, type) {
   if (type === 'newest') sorted.sort(() => Math.random() - 0.5);
   else if (type === 'hottest') sorted.sort((a,b) => parseFloat(b.views) - parseFloat(a.views));
   else if (type === 'duration') sorted.sort((a,b) => {
-    const toSecs = d => { const [m,s] = d.split(':').map(Number); return m*60+s; };
-    return toSecs(b.duration) - toSecs(a.duration);
+    return durationToSeconds(b.duration) - durationToSeconds(a.duration);
   });
   renderVideoList(sorted);
 }

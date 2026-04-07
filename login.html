@@ -204,6 +204,9 @@
 <div id="errorMsg" class="fixed top-20 left-4 right-4 z-50 bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-600 text-center opacity-0 transition-all duration-300 pointer-events-none"></div>
 
 <script>
+// ─── Helpers ──────────────────────────────────────────────────
+function isValidPhone(phone) { return /^1[3-9]\d{9}$/.test(phone); }
+
 // ─── Tab switching ─────────────────────────────────────────────
 function switchAuthTab(tab) {
   const isLogin = tab === 'login';
@@ -246,14 +249,14 @@ function startCountdown(btnId) {
 
 function getVerifyCode() {
   const phone = document.getElementById('phoneInput').value;
-  if (!/^1[3-9]\d{9}$/.test(phone)) { showError('请输入正确的手机号'); return; }
+  if (!isValidPhone(phone)) { showError('请输入正确的手机号'); return; }
   startCountdown('getCodeBtn');
   showSuccess('验证码已发送：123456（演示）');
 }
 
 function getRegCode() {
   const phone = document.getElementById('regPhone').value;
-  if (!/^1[3-9]\d{9}$/.test(phone)) { showError('请输入正确的手机号'); return; }
+  if (!isValidPhone(phone)) { showError('请输入正确的手机号'); return; }
   startCountdown('regCodeBtn');
   showSuccess('验证码已发送：123456（演示）');
 }
@@ -309,7 +312,7 @@ function doRegister() {
   const pwd = document.getElementById('regPwd').value;
   const confirm = document.getElementById('regPwdConfirm').value;
   if (!u) { showError('请输入用户名'); return; }
-  if (!/^1[3-9]\d{9}$/.test(p)) { showError('请输入正确的手机号'); return; }
+  if (!isValidPhone(p)) { showError('请输入正确的手机号'); return; }
   if (!c) { showError('请输入验证码'); return; }
   if (pwd.length < 6) { showError('密码至少6位'); return; }
   if (pwd !== confirm) { showError('两次密码不一致'); return; }

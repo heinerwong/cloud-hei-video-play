@@ -237,7 +237,8 @@ function renderDiscovery() {
     btn.className = 'rounded-xl py-3 text-white text-sm font-medium';
     btn.style.background = d.bg;
     btn.textContent = d.name;
-    btn.onclick = () => { document.getElementById('searchInput').value = d.name.replace(/[^\u4e00-\u9fa5]/g,''); doSearch(); };
+    // Strip emoji/symbols, keep only the Chinese text for the search query
+    btn.onclick = () => { document.getElementById('searchInput').value = d.name.replace(/[^\u4e00-\u9fa5\w]/g,'').trim(); doSearch(); };
     g.appendChild(btn);
   });
 }

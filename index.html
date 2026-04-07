@@ -282,12 +282,13 @@ function slideBanner(idx) {
 }
 setInterval(() => slideBanner(bannerIdx + 1), 3000);
 // Swipe banner
+const SWIPE_THRESHOLD = 40;
 let bStartX = 0;
 const bTrack = document.getElementById('bannerTrack');
 bTrack.addEventListener('touchstart', e => { bStartX = e.touches[0].clientX; });
 bTrack.addEventListener('touchend', e => {
   const dx = e.changedTouches[0].clientX - bStartX;
-  if (Math.abs(dx) > 40) slideBanner(dx < 0 ? bannerIdx + 1 : bannerIdx - 1);
+  if (Math.abs(dx) > SWIPE_THRESHOLD) slideBanner(dx < 0 ? bannerIdx + 1 : bannerIdx - 1);
 });
 
 // ─── Scroll Events ───────────────────────────────────────────

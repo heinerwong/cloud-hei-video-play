@@ -311,12 +311,8 @@
   <div class="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl safe-bottom selector-panel" id="speedPanel">
     <div class="flex justify-center pt-2 pb-1"><div class="w-10 h-1 bg-gray-200 rounded-full"></div></div>
     <p class="text-center text-sm font-medium text-gray-800 py-3 border-b border-gray-100">播放速度</p>
-    <div class="px-4 py-2">
-      ${['0.5x','0.75x','1x','1.25x','1.5x','2x'].map(s => `
-      <div class="speed-option ${s==='1x'?'active':''} flex items-center justify-between py-3.5 border-b border-gray-50 last:border-0 cursor-pointer" onclick="selectSpeed(this,'${s}')">
-        <span class="text-sm text-gray-800">${s}</span>
-        ${s==='1x'?'<svg width="18" height="18" viewBox="0 0 24 24" fill="#FF4757" class="check-icon"><polyline points="20 6 9 17 4 12"/></svg>':'<svg width="18" height="18" viewBox="0 0 24 24" fill="#FF4757" class="check-icon hidden"><polyline points="20 6 9 17 4 12"/></svg>'}
-      </div>`).join('')}
+    <div class="px-4 py-2" id="speedOptions">
+      <!-- Speed options injected by buildSpeedOptions() -->
     </div>
   </div>
 </div>
@@ -619,6 +615,16 @@ function selectQuality(el, q) {
 }
 
 // ─── Speed Panel ──────────────────────────────────────────────
+function buildSpeedOptions() {
+  const speeds = ['0.5x', '0.75x', '1x', '1.25x', '1.5x', '2x'];
+  const checkSvg = (visible) => `<svg width="18" height="18" viewBox="0 0 24 24" fill="#FF4757" class="check-icon${visible ? '' : ' hidden'}"><polyline points="20 6 9 17 4 12"/></svg>`;
+  return speeds.map(s => `
+    <div class="speed-option${s === '1x' ? ' active' : ''} flex items-center justify-between py-3.5 border-b border-gray-50 last:border-0 cursor-pointer" onclick="selectSpeed(this,'${s}')">
+      <span class="text-sm text-gray-800">${s}</span>
+      ${checkSvg(s === '1x')}
+    </div>`).join('');
+}
+document.getElementById('speedOptions').innerHTML = buildSpeedOptions();
 function openSpeed() {
   document.getElementById('speedOverlay').style.pointerEvents = 'auto';
   document.getElementById('speedBg').style.display = 'block';
